@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ECHO —words that continue breathing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <nav class="site-nav" aria-label="Main navigation">
+    <a href="#hero" class="site-nav__logo">• ECHO</a>
+    <div class="site-nav__links">
+      <a href="#hero" class="site-nav__link" data-section="hero">01 · HOME</a>
+      <a href="#compose" class="site-nav__link" data-section="compose">02 · COMPOSE</a>
+      <a href="#studio" class="site-nav__link" data-section="studio">03 · STUDIO</a>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section id="hero" class="section section--hero">
+    <p class="hero__meta">ECHO, A COMPUTATIONAL TEXT ART STUDIO</p>
+
+    <h1 class="hero__title" id="echo-title" aria-label="Echo">
+      <span class="hero__letter">E</span><span class="hero__letter">C</span><span class="hero__letter">H</span><span class="hero__letter">O</span>
+    </h1>
+
+    <p class="hero__subtitle">— <em> words that continue breathing</em> —</p>
+
+    <a href="#compose" class="hero__enter" id="enter-btn">
+      <span>begin your journey</span>
+      <span class="hero__arrow" aria-hidden="true">↓</span>
+    </a>
+  </section>
+
+  <!-- Compose -->
+  <section id="compose" class="section section--compose">
+    <div class="compose-frame">
+      <div class="compose-frame__bracket compose-frame__bracket--tl"></div>
+      <div class="compose-frame__bracket compose-frame__bracket--tr"></div>
+      <div class="compose-frame__bracket compose-frame__bracket--bl"></div>
+      <div class="compose-frame__bracket compose-frame__bracket--br"></div>
+
+      <div class="compose-frame__header">
+        <span>02 / COMPOSE</span>
+        <span>“Words have no single fixed meaning.” — Jorge Luis Borges</span>
+      </div>
+
+      <textarea
+        id="passage-input"
+        class="compose-input"
+        maxlength="1200"
+        placeholder="leave a sentence here
+and watch what remains of it."
+        aria-label="Text passage input"
+      ></textarea>
+
+      <div class="compose-frame__footer">
+        <button type="button" class="text-btn" id="sample-btn">Try a sample</button>
+        <span class="char-counter" id="char-counter">0000 / 1200</span>
+      </div>
+    </div>
+
+    <div class="compose-controls">
+      <div class="control-group">
+        <span class="control-label">THEME</span>
+        <div class="control-toggle" id="theme-toggle" role="group" aria-label="Theme">
+          <button type="button" class="control-toggle__option is-active" id="theme-night" data-value="night">NIGHT</button>
+          <button type="button" class="control-toggle__option" id="theme-paper" data-value="paper">PAPER</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <span class="control-label">MODE</span>
+        <select id="mode-select" class="control-select" aria-label="Visualization mode">
+          <option value="network">NETWORK</option>
+          <option value="soup">SOUP</option>
+          <option value="ascii">ASCII</option>
+          <option value="vortex">VORTEX</option>
+          <option value="orbit">ORBIT</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <span class="control-label">INTENSITY <span class="control-value" id="intensity-value">40</span></span>
+        <input type="range" id="intensity-slider" class="control-range" min="0" max="100" value="40">
+      </div>
+
+      <div class="control-group">
+        <span class="control-label">DENSITY <span class="control-value" id="density-value">60</span></span>
+        <input type="range" id="density-slider" class="control-range" min="0" max="100" value="60">
+      </div>
+
+      <div class="control-group">
+        <span class="control-label">MOTION <span class="control-value" id="motion-value">40</span></span>
+        <input type="range" id="motion-slider" class="control-range" min="0" max="100" value="40">
+      </div>
+
+    </div>
+
+    <button type="button" class="transform-btn" id="transform-btn">TRANSFORM →</button>
+  </section>
+
+  <!-- Studio -->
+  <section id="studio" class="section section--studio">
+    <div class="studio-nav">
+      <button type="button" class="studio-nav__back" id="new-text-btn">← NEW TEXT</button>
+      <div class="studio-nav__modes" role="tablist" aria-label="Visualization modes">
+        <button type="button" class="studio-mode-btn is-active" data-mode="network">NETWORK</button>
+        <button type="button" class="studio-mode-btn" data-mode="soup">SOUP</button>
+        <button type="button" class="studio-mode-btn" data-mode="ascii">ASCII</button>
+        <button type="button" class="studio-mode-btn" data-mode="vortex">VORTEX</button>
+        <button type="button" class="studio-mode-btn" data-mode="orbit">ORBIT</button>
+      </div>
+    </div>
+
+    <div class="studio-canvas-wrap">
+      <div id="studio-canvas" class="studio-canvas" aria-live="polite"></div>
+      <pre id="ascii-output" class="ascii-output" hidden></pre>
+    </div>
+
+    <p class="studio-hint" id="studio-hint">scroll to zoom · drag to explore</p>
+
+    <button type="button" class="studio-side-nav" id="studio-back-btn" aria-label="Back to compose">‹</button>
+  </section>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script type="module" src="main.js"></script>
+</body>
+</html>

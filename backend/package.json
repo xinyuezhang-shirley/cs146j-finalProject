@@ -1,0 +1,15 @@
+{
+  "name": "echo-backend",
+  "version": "1.0.0",
+  "description": "Echo API server — serves frontend and text analysis routes",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["text-art", "api", "cs146j"],
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
