@@ -10,6 +10,7 @@
 
 import { getThemeColors, withAlpha } from './theme.js';
 import { clamp01 } from './controls.js';
+import { measureContainer, syncCanvasToContainer, getStudioWrap } from './canvasSize.js';
 
 const DENSITY_MIN = 8;
 const DENSITY_MAX = 120;
@@ -127,9 +128,9 @@ export function renderVortex(container, data, options = {}) {
     paused: options.paused ?? false
   };
 
-  let width = container.clientWidth;
-  let height = container.clientHeight;
+  let { width, height } = measureContainer(container);
   let params = getVortexParams(simOptions);
+  let fitScale = Math.min(width, height) / 520;
   let particles = buildVortexParticles(
     sourcePool,
     targetParticleCount(simOptions.density),
@@ -137,13 +138,15 @@ export function renderVortex(container, data, options = {}) {
   );
 
   const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
   canvas.style.touchAction = 'none';
   canvas.style.cursor = 'grab';
   container.appendChild(canvas);
 
+  const wheelSurface = getStudioWrap(container) || canvas;
+
   const ctx = canvas.getContext('2d');
+  ({ width, height } = syncCanvasToContainer(canvas, ctx, container));
+  fitScale = Math.min(width, height) / 520;
 
   let animationId = null;
   let time = 0;
@@ -233,8 +236,8 @@ export function renderVortex(container, data, options = {}) {
         p.radius +
         Math.sin(time * params.wobbleRate + p.wobbleSeed + i * 0.4) * params.wobbleAmount;
 
-      const x = Math.cos(a) * spiral;
-      const y = Math.sin(a) * spiral * 0.62 + p.z * params.depthScale;
+      const x = Math.cos(a) * spiral * fitScale;
+      const y = (Math.sin(a) * spiral * 0.62 + p.z * params.depthScale) * fitScale;
 
       const dotRadius = p.type === 'core' ? 2.4 : 1.2;
       ctx.beginPath();
@@ -303,17 +306,16 @@ export function renderVortex(container, data, options = {}) {
   }
 
   function onResize() {
-    width = container.clientWidth;
-    height = container.clientHeight;
-    canvas.width = width;
-    canvas.height = height;
+    ({ width, height } = syncCanvasToContainer(canvas, ctx, container));
+    fitScale = Math.min(width, height) / 520;
+    syncLayoutFromControls();
   }
 
   canvas.addEventListener('pointerdown', onPointerDown);
   canvas.addEventListener('pointermove', onPointerMove);
   canvas.addEventListener('pointerup', onPointerUp);
   canvas.addEventListener('pointercancel', onPointerUp);
-  canvas.addEventListener('wheel', onWheel, { passive: false });
+  wheelSurface.addEventListener('wheel', onWheel, { passive: false });
   canvas.addEventListener('dblclick', onDoubleClick);
 
   const resizeObserver = new ResizeObserver(onResize);
@@ -357,7 +359,7 @@ export function renderVortex(container, data, options = {}) {
       canvas.removeEventListener('pointermove', onPointerMove);
       canvas.removeEventListener('pointerup', onPointerUp);
       canvas.removeEventListener('pointercancel', onPointerUp);
-      canvas.removeEventListener('wheel', onWheel);
+      wheelSurface.removeEventListener('wheel', onWheel);
       canvas.removeEventListener('dblclick', onDoubleClick);
     }
   };
@@ -366,8 +368,35 @@ export function renderVortex(container, data, options = {}) {
 }
 
 /**
- * Orbit — concentric ring layout (unchanged from prior renderer).
+ * Orbit — concentric ring layout centered in the visualization box.
  */
+function buildOrbitItems(sourcePool, count, motion, intensity, width, height) {
+  const padding = 28;
+  const maxRadius = Math.max(36, Math.min(width, height) * 0.38 - padding);
+  const numRings = 8;
+  const wobbleAmp = 0.05 + intensity * 0.55;
+  const baseSpeed = 0.001 + motion * 0.009;
+  const items = [];
+
+  for (let i = 0; i < count; i++) {
+    const p = sourcePool[i % sourcePool.length];
+    const ringIndex = i % numRings;
+    const t = numRings <= 1 ? 1 : ringIndex / (numRings - 1);
+    const baseRadius = maxRadius * (0.32 + t * 0.68);
+
+    items.push({
+      ...p,
+      angle: (i / count) * Math.PI * 2,
+      baseRadius,
+      radius: baseRadius,
+      speed: baseSpeed + (p.semanticScore || 0.3) * baseSpeed * 0.8,
+      wobbleAmp
+    });
+  }
+
+  return items;
+}
+
 export function renderOrbit(container, data, options = {}) {
   destroyVortex(container);
 
@@ -376,45 +405,33 @@ export function renderOrbit(container, data, options = {}) {
   const intensity = clamp01(options.intensity ?? 0.4);
   let paused = options.paused ?? false;
 
-  let width = container.clientWidth;
-  let height = container.clientHeight;
+  let { width, height } = measureContainer(container);
 
   const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
   container.appendChild(canvas);
   const ctx = canvas.getContext('2d');
+  ({ width, height } = syncCanvasToContainer(canvas, ctx, container));
 
   const sourcePool = buildSourcePool(data);
   const count = targetParticleCount(density);
-  const ringGap = 12 + intensity * 22;
-  const wobbleAmp = 0.05 + intensity * 0.55;
-  const baseSpeed = 0.001 + motion * 0.009;
-
-  let items = [];
-  for (let i = 0; i < count; i++) {
-    const p = sourcePool[i % sourcePool.length];
-    const baseRadius = 50 + (i % 8) * ringGap;
-    items.push({
-      ...p,
-      angle: (i / count) * Math.PI * 2,
-      baseRadius,
-      radius: baseRadius,
-      speed: baseSpeed + (p.semanticScore || 0.3) * baseSpeed * 0.8
-    });
-  }
+  let items = buildOrbitItems(sourcePool, count, motion, intensity, width, height);
 
   let animationId = null;
+  let resizeObserver = null;
 
   function draw() {
     const theme = getThemeColors();
     ctx.clearRect(0, 0, width, height);
+
     const cx = width / 2;
     const cy = height / 2;
 
+    ctx.save();
+    ctx.translate(cx, cy);
+
     items.forEach((p) => {
-      const x = cx + Math.cos(p.angle) * p.radius;
-      const y = cy + Math.sin(p.angle) * p.radius;
+      const x = Math.cos(p.angle) * p.radius;
+      const y = Math.sin(p.angle) * p.radius;
       ctx.font = `${p.type === 'core' ? 500 : 400} ${11 + p.size * 8}px "Cormorant Garamond", serif`;
       ctx.fillStyle = withAlpha(
         p.type === 'core' ? theme.vizCore : theme.vizRelated,
@@ -424,12 +441,14 @@ export function renderOrbit(container, data, options = {}) {
       ctx.textBaseline = 'middle';
       ctx.fillText(p.text, x, y);
     });
+
+    ctx.restore();
   }
 
   function update() {
     items.forEach((p) => {
       p.angle += p.speed;
-      p.radius = p.baseRadius + Math.sin(p.angle * 2) * wobbleAmp * 12;
+      p.radius = p.baseRadius + Math.sin(p.angle * 2) * p.wobbleAmp * 12;
     });
   }
 
@@ -439,12 +458,22 @@ export function renderOrbit(container, data, options = {}) {
     animationId = requestAnimationFrame(loop);
   }
 
+  function onResize() {
+    ({ width, height } = syncCanvasToContainer(canvas, ctx, container));
+    items = buildOrbitItems(sourcePool, count, motion, intensity, width, height);
+  }
+
+  resizeObserver = new ResizeObserver(onResize);
+  resizeObserver.observe(container);
+
   loop();
 
   container._vortexInstance = {
     cleanup: () => {
       if (animationId) cancelAnimationFrame(animationId);
       animationId = null;
+      resizeObserver?.disconnect();
+      resizeObserver = null;
     }
   };
 

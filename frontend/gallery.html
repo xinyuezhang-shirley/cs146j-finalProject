@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gallery — ECHO</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="gallery-page">
+
+  <a href="#main" class="skip-link">Skip to main content</a>
+
+  <header class="site-header">
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="index.html" class="site-nav__logo">• ECHO</a>
+      <div class="site-nav__links">
+        <a href="index.html" class="site-nav__link">Studio</a>
+        <a href="gallery.html" class="site-nav__link" aria-current="page">Gallery</a>
+        <a href="about.html" class="site-nav__link">About</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="main" class="page page--gallery">
+    <div class="page__inner">
+      <header class="page__header">
+        <p class="page__eyebrow">Echo Archive</p>
+        <h1 class="page__title">Gallery</h1>
+        <p class="page__lede">Saved Echo pieces from the Studio — select a card to preview its visualization below.</p>
+      </header>
+
+      <p id="gallery-notice" class="gallery-notice" role="status" aria-live="polite"></p>
+
+      <section class="gallery-section" aria-labelledby="gallery-heading">
+        <h2 id="gallery-heading" class="visually-hidden">Saved Echo works</h2>
+        <div id="gallery-grid" class="gallery-grid"></div>
+      </section>
+    </div>
+  </main>
+
+  <aside
+    id="gallery-preview"
+    class="gallery-preview"
+    aria-labelledby="gallery-preview-heading"
+  >
+    <div class="gallery-preview__meta">
+      <h2 id="gallery-preview-heading" class="gallery-preview__label">Preview</h2>
+      <p id="gallery-preview-title" class="gallery-preview__title">Select a saved Echo piece to preview it.</p>
+      <p id="gallery-preview-settings" class="gallery-preview__settings"></p>
+    </div>
+    <div class="gallery-preview__stage">
+      <div
+        id="gallery-preview-canvas"
+        class="studio-canvas gallery-preview__canvas"
+        role="img"
+        aria-label="Saved Echo visualization preview"
+        tabindex="0"
+      ></div>
+      <pre id="gallery-preview-ascii" class="ascii-output gallery-preview__ascii" hidden aria-label="ASCII preview output"></pre>
+    </div>
+  </aside>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script type="module" src="gallery.js"></script>
+</body>
+</html>

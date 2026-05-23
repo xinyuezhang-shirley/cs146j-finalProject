@@ -17,6 +17,7 @@
 
 import { getThemeColors, withAlpha } from './theme.js';
 import { clamp01 } from './controls.js';
+import { measureContainer, syncCanvasToContainer, getStudioWrap } from './canvasSize.js';
 
 const DENSITY_MIN = 6;
 const DENSITY_MAX = 130;
@@ -135,17 +136,17 @@ export function renderSoup(container, data, options = {}) {
     paused: options.paused ?? false
   };
 
-  let width = container.clientWidth;
-  let height = container.clientHeight;
+  let { width, height } = measureContainer(container);
 
   const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
   canvas.style.touchAction = 'none';
   canvas.style.cursor = 'grab';
   container.appendChild(canvas);
 
+  const wheelSurface = getStudioWrap(container) || canvas;
+
   const ctx = canvas.getContext('2d');
+  ({ width, height } = syncCanvasToContainer(canvas, ctx, container));
   let physics = getPhysics(simOptions);
   let particles = buildParticles(
     sourcePool,
@@ -375,10 +376,23 @@ export function renderSoup(container, data, options = {}) {
   }
 
   function onResize() {
-    width = container.clientWidth;
-    height = container.clientHeight;
-    canvas.width = width;
-    canvas.height = height;
+    const prevWidth = width;
+    const prevHeight = height;
+    ({ width, height } = syncCanvasToContainer(canvas, ctx, container));
+
+    if (prevWidth > 0 && prevHeight > 0 && (width !== prevWidth || height !== prevHeight)) {
+      const scaleX = width / prevWidth;
+      const scaleY = height / prevHeight;
+      particles.forEach((p) => {
+        p.x *= scaleX;
+        p.y *= scaleY;
+      });
+      pointer.x *= scaleX;
+      pointer.y *= scaleY;
+      pointer.lastX *= scaleX;
+      pointer.lastY *= scaleY;
+    }
+
     syncDensity();
   }
 
@@ -387,7 +401,7 @@ export function renderSoup(container, data, options = {}) {
   canvas.addEventListener('pointerup', onPointerUp);
   canvas.addEventListener('pointercancel', onPointerUp);
   canvas.addEventListener('pointerleave', onPointerUp);
-  canvas.addEventListener('wheel', onWheel, { passive: false });
+  wheelSurface.addEventListener('wheel', onWheel, { passive: false });
   canvas.addEventListener('dblclick', onDoubleClick);
 
   const resizeObserver = new ResizeObserver(onResize);
@@ -429,7 +443,7 @@ export function renderSoup(container, data, options = {}) {
       canvas.removeEventListener('pointerup', onPointerUp);
       canvas.removeEventListener('pointercancel', onPointerUp);
       canvas.removeEventListener('pointerleave', onPointerUp);
-      canvas.removeEventListener('wheel', onWheel);
+      wheelSurface.removeEventListener('wheel', onWheel);
       canvas.removeEventListener('dblclick', onDoubleClick);
     }
   };

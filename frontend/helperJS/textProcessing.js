@@ -174,6 +174,25 @@ export function analyzeTextLocally(text, density = 1) {
 }
 
 export const SAMPLE_PASSAGE =
-  `I couldn't find what I was looking for, and the silence felt heavier than words.
-Still, I kept walking — step by step — until the empty street became something else.
-You were there, or maybe just the memory of you, and for a moment I was happy again.`;
+  `Romantic Death- Linguistic Tragedy
+That words flow from the tip of my tongue, 
+Lolita’s spell upon me. Each stair case another drawn
+Out syllable, dancing, seducing my loss. Romantic. 
+
+Tragedy. 
+I speak not your language. I cannot
+Waltz your steps, you curious soul.
+I cannot caress the paragraphs like some long lost home, 
+For every grain of sand marks me foreign
+alone in the wilderness, a mournful tone.
+You will be the death of me, if not my lover
+Each syllable a perfect rhyme with mine
+Each sentence a centimeter more somber
+Until I lie forever under your spells
+Until I forever mistreat you as well. Still,
+Your step a little lighter, and I willingly close
+my eyes forever.
+To live a romantic death, to suffer a beautiful tragedy. 
+Is this not the beauty of language? To die,
+yet live, eternally?
+`;

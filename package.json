@@ -1,0 +1,10 @@
+{
+  "name": "echo-text-art-studio",
+  "private": true,
+  "description": "Echo — computational text art studio",
+  "scripts": {
+    "start": "npm start --prefix backend",
+    "dev": "npm run dev --prefix backend",
+    "postinstall": "npm install --prefix backend"
+  }
+}

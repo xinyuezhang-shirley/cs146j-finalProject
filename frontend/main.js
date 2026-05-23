@@ -1,18 +1,11 @@
 /**
- * Echo — main application orchestration.
+ * Echo — main application orchestration (Studio page).
  */
 
-import { analyzeText } from './helperJS/apiClient.js';
+import { analyzeText, saveWork } from './helperJS/apiClient.js';
 import { SAMPLE_PASSAGE } from './helperJS/textProcessing.js';
-import { renderNetwork, destroyNetwork, setNetworkPaused } from './helperJS/network.js';
-import { renderSoup, destroySoup } from './helperJS/soup.js';
-import { renderAscii, destroyAscii } from './helperJS/ascii.js';
-import { renderVortex, renderOrbit, destroyVortex } from './helperJS/vortex.js';
+import { renderEchoMode, destroyEchoMode } from './helperJS/renderMode.js';
 import { applyTheme, initTheme, syncThemeUI } from './helperJS/theme.js';
-
-console.log('main.js loaded');
-
-// --- State ---
 
 const state = {
   theme: 'night',
@@ -22,60 +15,49 @@ const state = {
   motion: 40,
   paused: false,
   analysis: null,
-  renderer: null
+  renderer: null,
+  saving: false
 };
 
-// --- DOM refs ---
-
 const siteNav = document.querySelector('.site-nav');
-const navLinks = document.querySelectorAll('.site-nav__link');
-const passageInput = document.getElementById('passage-input');
+const composeForm = document.getElementById('compose-form');
+const passageInput = document.getElementById('text-input');
 const charCounter = document.getElementById('char-counter');
+const composeError = document.getElementById('compose-error');
+const transformStatus = document.getElementById('transform-status');
 const sampleBtn = document.getElementById('sample-btn');
 const themeNightBtn = document.getElementById('theme-night');
 const themePaperBtn = document.getElementById('theme-paper');
 const modeSelect = document.getElementById('mode-select');
-
+const modeStatus = document.getElementById('mode-status');
 const intensitySlider = document.getElementById('intensity-slider');
 const densitySlider = document.getElementById('density-slider');
 const motionSlider = document.getElementById('motion-slider');
-
 const intensityValue = document.getElementById('intensity-value');
 const densityValue = document.getElementById('density-value');
 const motionValue = document.getElementById('motion-value');
-
 const transformBtn = document.getElementById('transform-btn');
-const composeThemeLabel = document.getElementById('compose-theme-label');
 const newTextBtn = document.getElementById('new-text-btn');
 const studioBackBtn = document.getElementById('studio-back-btn');
 const studioModeBtns = document.querySelectorAll('.studio-mode-btn');
 const studioCanvas = document.getElementById('studio-canvas');
-
 const asciiOutput = document.getElementById('ascii-output');
 const studioHint = document.getElementById('studio-hint');
+const fieldSummary = document.getElementById('field-summary');
 const enterBtn = document.getElementById('enter-btn');
-
-console.log({
-  passageInput,
-  transformBtn,
-  studioCanvas,
-  modeSelect
-});
+const saveBtn = document.getElementById('save-btn');
+const saveStatus = document.getElementById('save-status');
 
 function requireElement(value, name) {
-  if (!value) {
-    throw new Error(`Echo init failed: missing required element #${name}`);
-  }
-  return value;
+  if (!value) throw new Error(`Echo init failed: missing required element #${name}`);
 }
 
-requireElement(passageInput, 'passage-input');
+requireElement(composeForm, 'compose-form');
+requireElement(passageInput, 'text-input');
 requireElement(transformBtn, 'transform-btn');
 requireElement(studioCanvas, 'studio-canvas');
 requireElement(modeSelect, 'mode-select');
 requireElement(charCounter, 'char-counter');
-
-// --- Init ---
 
 function init() {
   try {
@@ -85,20 +67,26 @@ function init() {
     setTheme(initTheme());
     observeSections();
     updateNavOnScroll();
-    console.log('Echo init complete');
+    updateSaveButtonState();
   } catch (error) {
     console.error('Echo init failed:', error);
-    alert('Echo failed to initialize. Open the browser console for details.');
+    setTransformStatus('Echo failed to initialize. Check the browser console.', 'error');
   }
 }
 
 function bindEvents() {
-  passageInput.addEventListener('input', updateCharCounter);
+  passageInput.addEventListener('input', () => {
+    updateCharCounter();
+    clearFormError();
+  });
 
   sampleBtn?.addEventListener('click', () => {
     passageInput.value = SAMPLE_PASSAGE;
     updateCharCounter();
+    clearFormError();
   });
+
+  composeForm.addEventListener('submit', handleFormSubmit);
 
   themeNightBtn?.addEventListener('click', () => setTheme('night'));
   themePaperBtn?.addEventListener('click', () => setTheme('paper'));
@@ -106,26 +94,27 @@ function bindEvents() {
   modeSelect.addEventListener('change', (e) => {
     state.mode = e.target.value;
     syncStudioModeButtons();
+    announceMode(state.mode);
     if (state.analysis) renderCurrentMode();
   });
 
   intensitySlider?.addEventListener('input', (e) => {
     state.intensity = Number(e.target.value);
+    e.target.setAttribute('aria-valuenow', String(state.intensity));
     applyLiveControls();
   });
 
   densitySlider?.addEventListener('input', (e) => {
     state.density = Number(e.target.value);
+    e.target.setAttribute('aria-valuenow', String(state.density));
     applyLiveControls();
   });
 
   motionSlider?.addEventListener('input', (e) => {
     state.motion = Number(e.target.value);
+    e.target.setAttribute('aria-valuenow', String(state.motion));
     applyLiveControls();
   });
-
-
-  transformBtn.addEventListener('click', handleTransform);
 
   newTextBtn?.addEventListener('click', () => scrollToSection('compose'));
   studioBackBtn?.addEventListener('click', () => scrollToSection('compose'));
@@ -135,18 +124,12 @@ function bindEvents() {
   });
 
   studioModeBtns.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      state.mode = btn.dataset.mode;
-      modeSelect.value = state.mode;
-      syncStudioModeButtons();
-      if (state.analysis) renderCurrentMode();
-    });
-  });
-
-  navLinks.forEach((link) => {
-    link.addEventListener('click', (e) => {
-      e.preventDefault();
-      scrollToSection(link.dataset.section);
+    btn.addEventListener('click', () => selectMode(btn.dataset.mode));
+    btn.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        selectMode(btn.dataset.mode);
+      }
     });
   });
 
@@ -154,29 +137,46 @@ function bindEvents() {
   window.addEventListener('resize', debounce(() => {
     if (state.analysis) renderCurrentMode();
   }, 250));
+
+  saveBtn?.addEventListener('click', handleSave);
 }
 
-// --- Theme ---
+function selectMode(mode) {
+  state.mode = mode;
+  modeSelect.value = mode;
+  syncStudioModeButtons();
+  announceMode(mode);
+  if (state.analysis) {
+    updateFieldSummary(state.analysis);
+    renderCurrentMode();
+  }
+}
+
+function announceMode(mode) {
+  if (modeStatus) modeStatus.textContent = `Visualization mode set to ${mode}.`;
+}
 
 function setTheme(theme) {
   if (theme !== 'night' && theme !== 'paper') return;
-
   state.theme = applyTheme(theme);
-
   syncThemeUI(state.theme, {
     nightBtn: themeNightBtn,
-    paperBtn: themePaperBtn,
-    composeLabel: composeThemeLabel
+    paperBtn: themePaperBtn
   });
-
   if (state.analysis) renderCurrentMode();
 }
 
-// --- Navigation ---
-
 function scrollToSection(id) {
   const el = document.getElementById(id);
-  if (el) el.scrollIntoView({ behavior: 'smooth' });
+  if (!el) return Promise.resolve();
+  el.scrollIntoView({ behavior: 'smooth' });
+  return new Promise((resolve) => {
+    const done = () => resolve();
+    if ('onscrollend' in window) {
+      window.addEventListener('scrollend', done, { once: true });
+    }
+    setTimeout(done, 500);
+  });
 }
 
 function observeSections() {
@@ -185,15 +185,11 @@ function observeSections() {
     (entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
-          const id = entry.target.id;
-          navLinks.forEach((link) => {
-            link.classList.toggle('is-active', link.dataset.section === id);
-          });
-          document.body.classList.toggle('in-studio', id === 'studio');
+          document.body.classList.toggle('in-studio', entry.target.id === 'studio');
         }
       });
     },
-    { threshold: 0.4 }
+    { threshold: 0.35 }
   );
 
   sections.forEach((id) => {
@@ -205,8 +201,6 @@ function observeSections() {
 function updateNavOnScroll() {
   siteNav?.classList.toggle('is-scrolled', window.scrollY > 40);
 }
-
-// --- Character counter ---
 
 function updateControlLabels() {
   if (intensityValue) intensityValue.textContent = String(state.intensity);
@@ -223,26 +217,16 @@ function getRenderOptions() {
   };
 }
 
-/** Push slider changes into the active renderer when supported (Soup live controls). */
 function applyLiveControls() {
   updateControlLabels();
   if (!state.analysis) return;
 
   const opts = getRenderOptions();
+  updateFieldSummary(state.analysis);
 
-  if (state.mode === 'soup' && state.renderer?.updateOptions) {
+  if (state.renderer?.updateOptions) {
     state.renderer.updateOptions(opts);
-    return;
-  }
-
-  if (state.mode === 'vortex' && state.renderer?.updateOptions) {
-    state.renderer.updateOptions(opts);
-    return;
-  }
-
-  if (state.mode === 'ascii' && state.renderer?.updateOptions) {
-    state.renderer.updateOptions(opts);
-    return;
+    if (['soup', 'vortex', 'ascii'].includes(state.mode)) return;
   }
 
   renderCurrentMode();
@@ -253,118 +237,221 @@ function updateCharCounter() {
   charCounter.textContent = `${String(len).padStart(4, '0')} / 1200`;
 }
 
-// --- Transform & render ---
+function showFormError(message) {
+  if (!composeError) return;
+  composeError.textContent = message;
+  composeError.hidden = false;
+  passageInput.setAttribute('aria-invalid', 'true');
+}
 
-async function handleTransform() {
-  console.log('TRANSFORM CLICKED');
+function clearFormError() {
+  if (!composeError) return;
+  composeError.textContent = '';
+  composeError.hidden = true;
+  passageInput.removeAttribute('aria-invalid');
+}
 
-  const text = passageInput.value.trim();
-  console.log('input text:', text);
+function setTransformStatus(message, type = 'info') {
+  if (!transformStatus) return;
+  transformStatus.textContent = message;
+  transformStatus.dataset.status = type;
+}
 
-  if (!text) {
-    alert('Please enter some text first.');
-    passageInput.focus();
+function setLoading(loading) {
+  transformBtn.disabled = loading;
+  transformBtn.setAttribute('aria-busy', String(loading));
+  studioCanvas?.classList.toggle('is-loading', loading);
+  if (loading) setTransformStatus('Transforming your passage…');
+}
+
+function updateFieldSummary(analysis) {
+  if (!fieldSummary) return;
+
+  if (!analysis) {
+    fieldSummary.innerHTML = `
+      <span class="field-summary__line field-summary__line--idle">
+        <span class="field-summary__meta">awaiting passage</span>
+        <span class="field-summary__sep" aria-hidden="true"> ✦ </span>
+        <span class="field-summary__words">enter text and transform to begin</span>
+      </span>`;
     return;
   }
 
+  const core = (analysis.words || []).slice(0, 6).map((w) => w.text);
+  const related = (analysis.relatedWords || []).slice(0, 8).map((w) => w.text);
+  const mode = state.mode;
+
+  const coreLine = core.length
+    ? `<span class="field-summary__line">
+        <span class="field-summary__meta">${mode} mode</span>
+        <span class="field-summary__sep" aria-hidden="true"> ✦ </span>
+        <span class="field-summary__meta">core words:</span>
+        <span class="field-summary__words">${core.join(', ')}</span>
+      </span>`
+    : `<span class="field-summary__line">
+        <span class="field-summary__meta">${mode} mode</span>
+      </span>`;
+
+  const relatedLine = related.length
+    ? `<span class="field-summary__line">
+        <span class="field-summary__meta">related echoes:</span>
+        <span class="field-summary__words">${related.join(', ')}</span>
+      </span>`
+    : '';
+
+  fieldSummary.innerHTML = `
+    ${coreLine}
+    ${relatedLine}
+    <span class="field-summary__line field-summary__line--controls">
+      <span class="field-summary__meta">density ${state.density}</span>
+      <span class="field-summary__sep" aria-hidden="true"> • </span>
+      <span class="field-summary__meta">motion ${state.motion}</span>
+      <span class="field-summary__sep" aria-hidden="true"> • </span>
+      <span class="field-summary__meta">intensity ${state.intensity}</span>
+    </span>`;
+}
+
+async function handleFormSubmit(event) {
+  event.preventDefault();
+
+  const formData = new FormData(composeForm);
+  const text = String(formData.get('text') || '').trim();
+
+  if (!text) {
+    showFormError('Please enter some text before transforming.');
+    passageInput.focus();
+    setTransformStatus('Transform cancelled — passage is empty.', 'error');
+    return;
+  }
+
+  clearFormError();
+  setLoading(true);
+
   try {
-    studioCanvas.classList.add('is-loading');
     destroyCurrentRenderer();
 
     const analysis = await analyzeText(text, {
       density: state.density / 100
     });
 
-    console.log('analysis result:', analysis);
-
     state.analysis = analysis;
+    setTransformStatus('Transform complete. Echo field generated.', 'success');
+    updateFieldSummary(analysis);
+    updateSaveButtonState();
 
-    document.getElementById('studio')?.scrollIntoView({
-      behavior: 'smooth'
-    });
-
-    renderCurrentMode();
+    await scrollToSection('studio');
+    await renderCurrentMode();
   } catch (error) {
     console.error('Transform failed:', error);
-    alert('Something went wrong while transforming the text. Check the console.');
+    showFormError('Something went wrong while transforming. Please try again.');
+    setTransformStatus('Transform failed. Check your connection and try again.', 'error');
   } finally {
-    studioCanvas.classList.remove('is-loading');
+    setLoading(false);
+    transformBtn.removeAttribute('aria-busy');
   }
 }
 
-function renderCurrentMode() {
-  if (!state.analysis) {
-    console.warn('No analysis yet.');
-    return;
-  }
-
-  if (!studioCanvas) {
-    console.error('Missing #studio-canvas');
-    return;
-  }
-
-  console.log('Rendering mode:', state.mode);
+async function renderCurrentMode() {
+  if (!state.analysis || !studioCanvas) return;
 
   try {
-    destroyCurrentRenderer();
-    if (asciiOutput) asciiOutput.hidden = true;
-
     const opts = getRenderOptions();
-
     if (studioHint) studioHint.hidden = state.mode === 'ascii';
 
-    switch (state.mode) {
-      case 'network':
-        state.renderer = renderNetwork(studioCanvas, state.analysis, opts);
-        break;
-      case 'soup':
-        state.renderer = renderSoup(studioCanvas, state.analysis, opts);
-        break;
-      case 'ascii':
-        state.renderer = renderAscii(studioCanvas, asciiOutput, state.analysis, opts);
-        break;
-      case 'vortex':
-        state.renderer = renderVortex(studioCanvas, state.analysis, opts);
-        break;
-      case 'orbit':
-        state.renderer = renderOrbit(studioCanvas, state.analysis, opts);
-        break;
-      default:
-        console.warn('Unknown mode, falling back to network:', state.mode);
-        state.renderer = renderNetwork(studioCanvas, state.analysis, opts);
-    }
+    state.renderer = await renderEchoMode({
+      container: studioCanvas,
+      asciiEl: asciiOutput,
+      mode: state.mode,
+      data: state.analysis,
+      options: opts,
+      renderer: state.renderer
+    });
+
+    updateFieldSummary(state.analysis);
   } catch (error) {
     console.error('Render failed:', error);
-    throw error;
+    setTransformStatus('Visualization failed to render.', 'error');
   }
 }
 
 function destroyCurrentRenderer() {
   try {
-    if (state.renderer && typeof state.renderer.destroy === 'function') {
-      state.renderer.destroy();
-    }
+    destroyEchoMode({
+      container: studioCanvas,
+      asciiEl: asciiOutput,
+      renderer: state.renderer
+    });
     state.renderer = null;
-
-    if (studioCanvas) {
-      destroyNetwork(studioCanvas);
-      destroySoup(studioCanvas);
-      destroyVortex(studioCanvas);
-    }
-    if (asciiOutput) {
-      destroyAscii(studioCanvas, asciiOutput);
-    }
   } catch (error) {
     console.error('Error destroying renderer:', error);
   }
 }
 
-function syncStudioModeButtons() {
-  studioModeBtns.forEach((btn) => {
-    btn.classList.toggle('is-active', btn.dataset.mode === state.mode);
-  });
+function updateSaveButtonState() {
+  if (!saveBtn) return;
+  const canSave = Boolean(state.analysis) && !state.saving;
+  saveBtn.disabled = !canSave;
 }
 
+function setSaveStatus(message, type = 'info') {
+  if (!saveStatus) return;
+  saveStatus.textContent = message;
+  saveStatus.dataset.status = type;
+}
+
+function buildWorkPayload() {
+  const analysis = state.analysis;
+  const originalText = passageInput.value.trim() || analysis?.text || '';
+
+  return {
+    originalText,
+    coreWords: analysis?.words || [],
+    relatedWords: analysis?.relatedWords || [],
+    particles: analysis?.particles || [],
+    mode: state.mode,
+    density: state.density / 100,
+    motion: state.motion / 100,
+    intensity: state.intensity / 100,
+    options: {
+      density: state.density / 100,
+      motion: state.motion / 100,
+      intensity: state.intensity / 100,
+      paused: state.paused
+    },
+    analysisData: analysis ? JSON.parse(JSON.stringify(analysis)) : {}
+  };
+}
+
+async function handleSave() {
+  if (!state.analysis) {
+    setSaveStatus('Transform text before saving.', 'error');
+    return;
+  }
+
+  state.saving = true;
+  updateSaveButtonState();
+  setSaveStatus('Saving to gallery…');
+
+  try {
+    await saveWork(buildWorkPayload());
+    setSaveStatus('Saved to Gallery.', 'success');
+  } catch (error) {
+    console.error('Save failed:', error);
+    setSaveStatus(error.message || 'Failed to save work.', 'error');
+  } finally {
+    state.saving = false;
+    updateSaveButtonState();
+  }
+}
+
+function syncStudioModeButtons() {
+  studioModeBtns.forEach((btn) => {
+    const active = btn.dataset.mode === state.mode;
+    btn.classList.toggle('is-active', active);
+    btn.setAttribute('aria-selected', String(active));
+    btn.tabIndex = active ? 0 : -1;
+  });
+}
 
 function debounce(fn, ms) {
   let timer;

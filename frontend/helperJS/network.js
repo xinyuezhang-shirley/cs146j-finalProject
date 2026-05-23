@@ -4,6 +4,7 @@
  */
 
 import { densityToCount, clamp01 } from './controls.js';
+import { measureContainer, getStudioWrap } from './canvasSize.js';
 
 let simulation = null;
 let zoomBehavior = null;
@@ -31,14 +32,16 @@ export function renderNetwork(container, data, options = {}) {
     return { pause: () => {}, resume: () => {}, destroy: () => destroyNetwork(container) };
   }
 
-  let width = container.clientWidth;
-  let height = container.clientHeight;
+  let { width, height } = measureContainer(container);
 
   const svg = d3.select(container)
     .append('svg')
     .attr('width', width)
     .attr('height', height)
     .attr('viewBox', `0 0 ${width} ${height}`)
+    .style('width', '100%')
+    .style('height', '100%')
+    .style('display', 'block')
     .style('background', 'transparent');
 
   const g = svg.append('g');
@@ -156,9 +159,11 @@ export function renderNetwork(container, data, options = {}) {
   }
 
   function handleResize() {
-    width = container.clientWidth;
-    height = container.clientHeight;
-    svg.attr('viewBox', `0 0 ${width} ${height}`);
+    ({ width, height } = measureContainer(container));
+    svg
+      .attr('width', width)
+      .attr('height', height)
+      .attr('viewBox', `0 0 ${width} ${height}`);
     g.select('.network-bg')
       .attr('width', width)
       .attr('height', height);
@@ -171,7 +176,7 @@ export function renderNetwork(container, data, options = {}) {
   }
 
   resizeObserver = new ResizeObserver(handleResize);
-  resizeObserver.observe(container);
+  resizeObserver.observe(getStudioWrap(container) || container);
 
   return {
     pause: () => simulation?.stop(),
