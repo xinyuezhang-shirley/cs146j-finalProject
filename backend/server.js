@@ -37,7 +37,7 @@ app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (origin && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   }
   if (req.method === 'OPTIONS') {
@@ -300,6 +300,40 @@ app.get('/api/works/:id', async (req, res) => {
     res.json(toCamel(data));
   } catch (err) {
     res.status(500).json({ error: 'Failed to load work', message: err.message });
+  }
+});
+
+app.put('/api/works/:id', async (req, res) => {
+  if (!requireSupabase(res)) return;
+
+  try {
+    const body = req.body || {};
+    const update = {};
+
+    if (body.density !== undefined) update.density = clampUnit(body.density, 0.6);
+    if (body.motion !== undefined) update.motion = clampUnit(body.motion, 0.4);
+    if (body.intensity !== undefined) update.intensity = clampUnit(body.intensity, 0.4);
+    if (body.options && typeof body.options === 'object') update.options = body.options;
+
+    if (!Object.keys(update).length) {
+      res.status(400).json({ error: 'No updatable fields provided' });
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('echo_works')
+      .update(update)
+      .eq('id', req.params.id)
+      .select()
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) {
+      res.status(404).json({ error: 'Work not found' });
+      return;
+    }
+    res.json(toCamel(data));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update work', message: err.message });
   }
 });
 
