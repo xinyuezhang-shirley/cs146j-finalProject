@@ -36,32 +36,35 @@ const controls = { intensity: 40, density: 60, motion: 40, paused: false };
 applyTheme(initTheme());
 loadGallery();
 
+// Fetch saved pieces on load and render them (or show empty/error state).
 async function loadGallery() {
-  setNotice('Loading saved Echo pieces…');
+  setStatus(notice, 'Loading saved Echo pieces…');
 
   try {
     works = await fetchWorks();
 
     if (!works.length) {
-      setNotice('No saved pieces yet. Transform text in the Studio and click Save to Gallery.');
+      setStatus(notice, 'No saved pieces yet. Transform text in the Studio and click Save to Gallery.');
       renderGrid([]);
       return;
     }
 
-    setNotice(`${works.length} saved piece${works.length === 1 ? '' : 's'} in the archive.`);
+    setStatus(notice, `${works.length} saved piece${works.length === 1 ? '' : 's'} in the archive.`);
     renderGrid(works);
   } catch (error) {
-    setNotice(error.message || 'Failed to load gallery.', 'error');
+    setStatus(notice, error.message || 'Failed to load gallery.', 'error');
     renderGrid([]);
   }
 }
 
-function setNotice(message, type = 'info') {
-  if (!notice) return;
-  notice.textContent = message;
-  notice.dataset.status = type;
+// Set a status line's text + data-status (used by both the page notice and the modal).
+function setStatus(el, message, type = 'info') {
+  if (!el) return;
+  el.textContent = message;
+  el.dataset.status = type;
 }
 
+// Rebuild the whole card grid from a list of works (used only when data changes).
 function renderGrid(items) {
   if (!grid) return;
 
@@ -120,36 +123,25 @@ function renderGrid(items) {
         </div>
       </article>`;
   }).join('');
+}
 
+// Toggle the selected-card highlight without rebuilding the whole grid.
+function setSelectedCard(id) {
+  selectedId = id;
+  if (!grid) return;
   grid.querySelectorAll('.gallery-card').forEach((card) => {
-    card.addEventListener('click', (event) => {
-      if (event.target.closest('[data-delete-id]')) return;
-      selectWork(card.dataset.id);
-    });
-
-    card.addEventListener('keydown', (event) => {
-      if (event.target.closest('[data-delete-id]')) return;
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        selectWork(card.dataset.id);
-      }
-    });
-  });
-
-  grid.querySelectorAll('[data-delete-id]').forEach((btn) => {
-    btn.addEventListener('click', (event) => {
-      event.stopPropagation();
-      handleDelete(btn.dataset.deleteId);
-    });
+    const isSelected = card.dataset.id === id;
+    card.classList.toggle('is-selected', isSelected);
+    card.setAttribute('aria-pressed', String(isSelected));
   });
 }
 
+// Open a piece in the modal: seed sliders from its saved values, then render.
 function selectWork(id) {
   const work = works.find((item) => item.id === id);
   if (!work) return;
 
-  selectedId = id;
-  renderGrid(works);
+  setSelectedCard(id);
 
   const extra = work.options && typeof work.options === 'object' ? work.options : {};
   controls.intensity = toSlider(work.intensity != null ? work.intensity : extra.intensity, 0.4);
@@ -160,7 +152,7 @@ function selectWork(id) {
 
   if (previewTitle) previewTitle.textContent = work.title;
   updateSettingsLabel(work);
-  setModalStatus('');
+  setStatus(modalStatus, '');
 
   openModal();
 
@@ -168,6 +160,7 @@ function selectWork(id) {
   requestAnimationFrame(() => renderPreview(work));
 }
 
+// Build the data the renderer expects and draw the visualization in the modal stage.
 function renderPreview(work) {
   try {
     const saved = work.analysisData && typeof work.analysisData === 'object' ? work.analysisData : {};
@@ -192,7 +185,7 @@ function renderPreview(work) {
       renderer: previewRenderer
     });
   } catch {
-    setModalStatus('Could not render preview for this piece.', 'error');
+    setStatus(modalStatus, 'Could not render preview for this piece.', 'error');
   }
 }
 
@@ -214,6 +207,7 @@ function applyControls() {
   renderPreview(work);
 }
 
+// Convert the 0–100 slider state into the 0–1 options the renderer/API use.
 function optionsFromControls() {
   return {
     intensity: clamp01(controls.intensity / 100),
@@ -223,6 +217,7 @@ function optionsFromControls() {
   };
 }
 
+// Push the current control values back into the slider inputs and their labels.
 function syncSliders() {
   ['intensity', 'density', 'motion'].forEach((key) => {
     const slider = sliders[key];
@@ -234,14 +229,23 @@ function syncSliders() {
   });
 }
 
-function updateSettingsLabel(work) {
-  if (!previewSettings) return;
-  const d = Math.round(controls.density);
-  const m = Math.round(controls.motion);
-  const i = Math.round(controls.intensity);
-  previewSettings.textContent = `${String(work.mode).toUpperCase()} · density ${d} · motion ${m} · intensity ${i}`;
+// "density 60 · motion 40 · intensity 40" — d/m/i are 0–100 ints.
+function settingsText(d, m, i) {
+  return `density ${d} · motion ${m} · intensity ${i}`;
 }
 
+// Write the modal header line from the *live* slider values (e.g. "NETWORK · density 60 …").
+function updateSettingsLabel(work) {
+  if (!previewSettings) return;
+  const settings = settingsText(
+    Math.round(controls.density),
+    Math.round(controls.motion),
+    Math.round(controls.intensity)
+  );
+  previewSettings.textContent = `${String(work.mode).toUpperCase()} · ${settings}`;
+}
+
+// Show the modal, lock page scroll, and move focus to the close button.
 function openModal() {
   if (!modal) return;
   lastFocused = document.activeElement;
@@ -250,6 +254,7 @@ function openModal() {
   document.getElementById('gallery-modal-close')?.focus();
 }
 
+// Hide the modal, tear down the renderer, clear the highlight, and restore focus.
 function closeModal() {
   if (!modal || modal.hidden) return;
   modal.hidden = true;
@@ -262,19 +267,19 @@ function closeModal() {
   });
   previewRenderer = null;
 
-  selectedId = null;
-  renderGrid(works);
+  setSelectedCard(null);
 
   if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
   lastFocused = null;
 }
 
+// Persist the edited slider values in place (PUT) and refresh the card's settings text.
 async function handleSave() {
   const work = works.find((item) => item.id === selectedId);
   if (!work) return;
 
   modalSave.disabled = true;
-  setModalStatus('Saving changes…');
+  setStatus(modalStatus, 'Saving changes…');
 
   const opts = optionsFromControls();
   const patch = {
@@ -289,25 +294,21 @@ async function handleSave() {
     Object.assign(work, updated);
     renderGrid(works);
     updateSettingsLabel(work);
-    setModalStatus('Changes saved.', 'success');
+    setStatus(modalStatus, 'Changes saved.', 'success');
   } catch (error) {
-    setModalStatus(error.message || 'Failed to save changes.', 'error');
+    setStatus(modalStatus, error.message || 'Failed to save changes.', 'error');
   } finally {
     modalSave.disabled = false;
   }
 }
 
-function setModalStatus(message, type = 'info') {
-  if (!modalStatus) return;
-  modalStatus.textContent = message;
-  modalStatus.dataset.status = type;
-}
-
+// Convert a stored 0–1 value into a rounded 0–100 slider value (fallback if missing).
 function toSlider(value, fallback) {
   const n = Number(value);
   return Math.round(clamp01(Number.isFinite(n) ? n : fallback) * 100);
 }
 
+// Confirm, delete on the server, then update local state, the modal, and the grid.
 async function handleDelete(id) {
   const work = works.find((item) => item.id === id);
   if (!work) return;
@@ -324,25 +325,28 @@ async function handleDelete(id) {
     }
 
     if (!works.length) {
-      setNotice('No saved pieces yet. Transform text in the Studio and click Save to Gallery.');
+      setStatus(notice, 'No saved pieces yet. Transform text in the Studio and click Save to Gallery.');
       renderGrid([]);
       return;
     }
 
-    setNotice(`${works.length} saved piece${works.length === 1 ? '' : 's'} in the archive.`);
+    setStatus(notice, `${works.length} saved piece${works.length === 1 ? '' : 's'} in the archive.`);
     renderGrid(works);
   } catch (error) {
-    setNotice(error.message || 'Failed to delete work.', 'error');
+    setStatus(notice, error.message || 'Failed to delete work.', 'error');
   }
 }
 
+// Settings string from a work's *saved* values, shown on the grid card.
 function formatSettings(work) {
-  const d = Math.round(Number(work.density ?? 0) * 100);
-  const m = Math.round(Number(work.motion ?? 0) * 100);
-  const i = Math.round(Number(work.intensity ?? 0) * 100);
-  return `density ${d} · motion ${m} · intensity ${i}`;
+  return settingsText(
+    Math.round(Number(work.density ?? 0) * 100),
+    Math.round(Number(work.motion ?? 0) * 100),
+    Math.round(Number(work.intensity ?? 0) * 100)
+  );
 }
 
+// Format an ISO date into a localized short date ('' if missing/invalid).
 function formatDate(iso) {
   if (!iso) return '';
   try {
@@ -356,12 +360,14 @@ function formatDate(iso) {
   }
 }
 
+// Trim text to `max` chars, adding an ellipsis when cut.
 function truncate(text, max) {
   const value = String(text || '').trim();
   if (value.length <= max) return value;
   return `${value.slice(0, max - 1)}…`;
 }
 
+// Escape HTML special chars, since cards are built via innerHTML from saved text.
 function escapeHtml(value) {
   return String(value)
     .replace(/&/g, '&amp;')
@@ -369,6 +375,27 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+
+// grid — one delegated listener instead of re-binding every card on each render
+grid?.addEventListener('click', (event) => {
+  const deleteBtn = event.target.closest('[data-delete-id]');
+  if (deleteBtn) {
+    handleDelete(deleteBtn.dataset.deleteId);
+    return;
+  }
+  const card = event.target.closest('.gallery-card');
+  if (card) selectWork(card.dataset.id);
+});
+
+grid?.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  if (event.target.closest('[data-delete-id]')) return;
+  const card = event.target.closest('.gallery-card');
+  if (card) {
+    event.preventDefault();
+    selectWork(card.dataset.id);
+  }
+});
 
 // modal controls
 ['intensity', 'density', 'motion'].forEach((key) => {
@@ -393,6 +420,7 @@ window.addEventListener('resize', debounce(() => {
   if (work && modal && !modal.hidden) renderPreview(work);
 }, 250));
 
+// Run `fn` only after `ms` of quiet — used to throttle resize re-renders.
 function debounce(fn, ms) {
   let timer;
   return (...args) => {
