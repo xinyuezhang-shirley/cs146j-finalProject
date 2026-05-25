@@ -1,318 +1,147 @@
-// Browser fallback when the Echo server is not running.
+// textProcessing.js
+// simple local text processing for Echo
 
 const STOPWORDS = new Set([
   'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
   'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'be',
-  'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will',
-  'would', 'could', 'should', 'may', 'might', 'must', 'shall', 'can',
-  'need', 'dare', 'ought', 'used', 'it', 'its', 'this', 'that', 'these',
-  'those', 'i', 'me', 'my', 'myself', 'we', 'our', 'you', 'your', 'he',
-  'him', 'his', 'she', 'her', 'they', 'them', 'their', 'what', 'which',
-  'who', 'whom', 'when', 'where', 'why', 'how', 'all', 'each', 'every',
-  'both', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor',
-  'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'just',
-  'also', 'now', 'here', 'there', 'then', 'once', 'if', 'about', 'into',
-  'through', 'during', 'before', 'after', 'above', 'below', 'up', 'down',
-  'out', 'off', 'over', 'under', 'again', 'further', 'any', 'because',
-  'until', 'while', 'am', 'having', 'doing'
+  'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+  'should', 'it', 'this', 'that', 'i', 'me', 'my', 'we', 'you', 'your',
+  'he', 'she', 'they', 'them', 'what', 'when', 'where', 'why', 'how',
+  'not', 'only', 'just', 'very', 'so', 'than', 'too', 'into', 'out',
+  'up', 'down', 'over', 'under', 'again', 'until', 'while'
 ]);
 
-// pull out the important words from the passage
-export function extractWords(text) {
-  const lower = text.toLowerCase();
-  const match = lower.match(/[a-z']+/g);
-  const tokens = match ? match : [];
 
-  const frequency = {};
-  for (let i = 0; i < tokens.length; i++) {
-    const word = tokens[i];
-    if (word.length < 2) {
-      continue;
-    }
-    if (STOPWORDS.has(word)) {
-      continue;
-    }
-    if (!frequency[word]) {
-      frequency[word] = 0;
-    }
-    frequency[word] = frequency[word] + 1;
-  }
+// turns a passage into a clean list of words
+function getWords(text) {
+  const matches = text.toLowerCase().match(/[a-z']+/g);
+  const words = matches || [];
 
-  const wordTexts = Object.keys(frequency);
-  wordTexts.sort(function (a, b) {
-    return frequency[b] - frequency[a];
+  return words.filter((word) => {
+    return word.length > 1 && !STOPWORDS.has(word);
   });
-
-  const words = [];
-  for (let i = 0; i < wordTexts.length; i++) {
-    const word = wordTexts[i];
-    words.push({
-      text: word,
-      frequency: frequency[word],
-      type: 'core',
-      source: 'input'
-    });
-  }
-
-  return {
-    words: words,
-    frequency: frequency,
-    rawWordCount: tokens.length
-  };
 }
 
-// connect words that appear near each other
-export function buildCooccurrenceLinks(words, text, windowSize) {
-  if (windowSize === undefined) {
-    windowSize = 4;
-  }
 
-  const lower = text.toLowerCase();
-  const match = lower.match(/[a-z']+/g);
-  const tokens = match ? match : [];
+// counts how often each word appears
+function countWords(words) {
+  const counts = {};
 
-  const wordSet = {};
-  for (let i = 0; i < words.length; i++) {
-    wordSet[words[i].text] = true;
-  }
+  words.forEach((word) => {
+    if (!counts[word]) {
+      counts[word] = 0;
+    }
 
-  const pairCounts = {};
+    counts[word]++;
+  });
 
-  for (let i = 0; i < tokens.length; i++) {
-    const anchor = tokens[i];
-    if (!wordSet[anchor]) {
+  return counts;
+}
+
+
+// creates the main word list used by the visuals
+function makeWordList(counts) {
+  const words = Object.keys(counts);
+
+  words.sort((a, b) => {
+    return counts[b] - counts[a];
+  });
+
+  //map the words to an object with the word, frequency, type, and source
+  return words.map((word) => {
+    return {
+      text: word,
+      frequency: counts[word],
+      type: 'core',
+      source: 'input'
+    };
+  });
+}
+
+
+// connects words that appear near each other
+function makeLinks(cleanWords, wordList) {
+  const importantWords = new Set(wordList.map((word) => word.text));
+  const links = [];
+
+  for (let i = 0; i < cleanWords.length - 1; i++) {
+    const firstWord = cleanWords[i];
+    const secondWord = cleanWords[i + 1];
+
+    if (!importantWords.has(firstWord) || !importantWords.has(secondWord)) {
       continue;
     }
 
-    const end = i + windowSize;
-    const limit = end < tokens.length ? end : tokens.length;
-
-    for (let j = i + 1; j < limit; j++) {
-      const neighbor = tokens[j];
-      if (!wordSet[neighbor]) {
-        continue;
-      }
-      if (anchor === neighbor) {
-        continue;
-      }
-
-      let first = anchor;
-      let second = neighbor;
-      if (first > second) {
-        const temp = first;
-        first = second;
-        second = temp;
-      }
-      const key = first + '|' + second;
-
-      if (!pairCounts[key]) {
-        pairCounts[key] = 0;
-      }
-      pairCounts[key] = pairCounts[key] + 1;
+    if (firstWord === secondWord) {
+      continue;
     }
-  }
 
-  const links = [];
-  const keys = Object.keys(pairCounts);
-  for (let i = 0; i < keys.length; i++) {
-    const key = keys[i];
-    const parts = key.split('|');
     links.push({
-      source: parts[0],
-      target: parts[1],
-      weight: pairCounts[key]
+      source: firstWord,
+      target: secondWord,
+      weight: 1
     });
   }
 
   return links;
 }
 
-// find softer related words from the same passage
-export function generateLocalRelatedWords(words, text, links) {
-  if (!links) {
-    links = [];
-  }
 
-  const coreSet = {};
-  for (let i = 0; i < words.length; i++) {
-    coreSet[words[i].text] = true;
-  }
+// creates word particles for the animated views
+function makeParticles(wordList, density = 1) {
+  const amount = Math.max(8, Math.round(wordList.length * density));
+  const pickedWords = wordList.slice(0, amount);
 
-  const related = [];
-  const added = {};
+  const maxFrequency = pickedWords[0]?.frequency || 1;
 
-  function addRelated(wordText, score, sourceWord) {
-    if (added[wordText]) {
-      return;
-    }
-    if (wordText.length < 2) {
-      return;
-    }
-    if (STOPWORDS.has(wordText)) {
-      return;
-    }
-    added[wordText] = true;
-    related.push({
-      text: wordText,
-      score: score,
-      source: sourceWord,
-      type: 'related'
-    });
-  }
+  return pickedWords.map((word) => {
+    const strength = word.frequency / maxFrequency;
 
-  // top core words pull in their linked neighbors as softer echoes
-  const topCount = 8;
-  const topSet = {};
-  for (let i = 0; i < words.length && i < topCount; i++) {
-    topSet[words[i].text] = true;
-  }
-
-  for (let i = 0; i < links.length; i++) {
-    const link = links[i];
-    if (topSet[link.source]) {
-      addRelated(link.target, 0.5, link.source);
-    }
-    if (topSet[link.target]) {
-      addRelated(link.source, 0.5, link.target);
-    }
-  }
-
-  // words sitting next to a core word in the original text
-  const lower = text.toLowerCase();
-  const match = lower.match(/[a-z']+/g);
-  const tokens = match ? match : [];
-
-  for (let i = 0; i < tokens.length; i++) {
-    const token = tokens[i];
-    if (!coreSet[token]) {
-      continue;
-    }
-
-    if (i > 0) {
-      const before = tokens[i - 1];
-      if (!coreSet[before]) {
-        addRelated(before, 0.4, token);
-      }
-    }
-
-    if (i < tokens.length - 1) {
-      const after = tokens[i + 1];
-      if (!coreSet[after]) {
-        addRelated(after, 0.4, token);
-      }
-    }
-  }
-
-  related.sort(function (a, b) {
-    return b.score - a.score;
-  });
-
-  if (related.length > 40) {
-    return related.slice(0, 40);
-  }
-  return related;
-}
-
-// make the word objects used by the visualizations
-export function buildParticles(words, relatedWords, density) {
-  if (!relatedWords) {
-    relatedWords = [];
-  }
-  if (density === undefined) {
-    density = 1;
-  }
-
-  let maxFreq = 1;
-  for (let i = 0; i < words.length; i++) {
-    if (words[i].frequency > maxFreq) {
-      maxFreq = words[i].frequency;
-    }
-  }
-
-  const coreCount = Math.max(8, Math.round(words.length * density));
-  const coreWords = words.slice(0, coreCount);
-
-  const coreParticles = [];
-  for (let i = 0; i < coreWords.length; i++) {
-    const word = coreWords[i];
-    const ratio = word.frequency / maxFreq;
-    coreParticles.push({
+    return {
       text: word.text,
       type: 'core',
       source: 'input',
       frequency: word.frequency,
-      size: 0.7 + ratio * 1.3,
-      opacity: 0.55 + ratio * 0.45,
-      semanticScore: ratio
-    });
-  }
-
-  const relatedCount = Math.max(4, Math.round(relatedWords.length * density));
-  const pickedRelated = relatedWords.slice(0, relatedCount);
-
-  const relatedParticles = [];
-  for (let i = 0; i < pickedRelated.length; i++) {
-    const word = pickedRelated[i];
-    let score = 0.3;
-    if (word.score) {
-      score = word.score;
-    }
-    let source = 'echo';
-    if (word.source) {
-      source = word.source;
-    }
-    relatedParticles.push({
-      text: word.text,
-      type: 'related',
-      source: source,
-      frequency: 1,
-      size: 0.5 + (1 - i * 0.05) * 0.4,
-      opacity: 0.15 + (1 - i * 0.08) * 0.25,
-      semanticScore: score
-    });
-  }
-
-  return coreParticles.concat(relatedParticles);
+      size: 0.8 + strength,
+      opacity: 0.5 + strength * 0.5,
+      semanticScore: strength
+    };
+  });
 }
 
-// run local text analysis when the server is offline
-export function analyzeTextLocally(text, density) {
-  if (density === undefined) {
-    density = 1;
-  }
 
-  const extracted = extractWords(text);
-  const words = extracted.words;
-  const frequency = extracted.frequency;
+// main function used to locally analyze text when the server is offline
+// basically return all the forms that the words can take
+export function analyzeTextLocally(text, density = 1) {
+  const cleanWords = getWords(text);
+  const counts = countWords(cleanWords);
+  const wordList = makeWordList(counts);
+  const particles = makeParticles(wordList, density);
+  const links = makeLinks(cleanWords, wordList);
 
-  const links = buildCooccurrenceLinks(words, text);
-  const relatedWords = generateLocalRelatedWords(words, text, links);
-  const particles = buildParticles(words, relatedWords, density);
-
-  const nodes = [];
-  for (let i = 0; i < words.length; i++) {
-    nodes.push({
-      id: words[i].text,
-      frequency: words[i].frequency
-    });
-  }
+  const nodes = wordList.map((word) => {
+    return {
+      id: word.text,
+      frequency: word.frequency
+    };
+  });
 
   return {
     text: text,
-    words: words,
-    frequency: frequency,
-    relatedWords: relatedWords,
+    words: wordList,
+    frequency: counts,
+    relatedWords: [],
     particles: particles,
     links: links,
     nodes: nodes,
     meta: {
-      wordCount: words.length,
-      relatedCount: relatedWords.length,
-      enrichment: 'echo-local',
+      wordCount: wordList.length,
+      relatedCount: 0,
       source: 'local'
     }
   };
 }
+
 
 export const SAMPLE_PASSAGE =
   `Romantic Death- Linguistic Tragedy

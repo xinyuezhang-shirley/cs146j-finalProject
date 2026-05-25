@@ -1,6 +1,6 @@
 // D3 force graph — draggable nodes, hover highlight, pan/zoom on empty space.
 
-import { densityToCount, clamp01, getContainerSize } from './controls.js';
+import { densityToCount, getContainerSize } from './controls.js';
 
 let simulation = null;
 let zoomBehavior = null;
@@ -22,9 +22,15 @@ export function renderNetwork(container, data, options) {
   // setup -> destroys the existing network if it exists, then sets up the network with the data and options
   destroyNetwork(container);
 
-  const density = clamp01(options.density !== undefined ? options.density : 0.6);
-  const motion = clamp01(options.motion !== undefined ? options.motion : 0.4);
-  const intensity = clamp01(options.intensity !== undefined ? options.intensity : 0.4);
+  let density = options.density !== undefined ? options.density : 0.6;
+  let motion = options.motion !== undefined ? options.motion : 0.4;
+  let intensity = options.intensity !== undefined ? options.intensity : 0.4;
+  if (density < 0) density = 0;
+  if (density > 1) density = 1;
+  if (motion < 0) motion = 0;
+  if (motion > 1) motion = 1;
+  if (intensity < 0) intensity = 0;
+  if (intensity > 1) intensity = 1;
   const paused = options.paused ? options.paused : false;
   const maxNodes = densityToCount(density, 8, 40);
   const graphData = prepareGraphData(data, maxNodes);

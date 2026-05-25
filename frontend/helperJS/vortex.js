@@ -1,7 +1,7 @@
 // Vortex + orbit — spiral and ring layouts.
 
 import { getThemeColors, withAlpha } from './theme.js';
-import { clamp01, getContainerSize, fitCanvas } from './controls.js';
+import { getContainerSize, fitCanvas } from './controls.js';
 
 const DENSITY_MIN = 8;
 const DENSITY_MAX = 120;
@@ -11,7 +11,10 @@ const ZOOM_SMOOTH = 0.14;
 const ZOOM_WHEEL_SENSITIVITY = 0.0012;
 
 function targetParticleCount(density) {
-  return Math.round(DENSITY_MIN + clamp01(density) * (DENSITY_MAX - DENSITY_MIN));
+  let d = density;
+  if (d < 0) d = 0;
+  if (d > 1) d = 1;
+  return Math.round(DENSITY_MIN + d * (DENSITY_MAX - DENSITY_MIN));
 }
 
 // get word templates from the analysis data
@@ -46,13 +49,15 @@ function getVortexParams(options) {
   if (motion === undefined) {
     motion = 0.4;
   }
-  motion = clamp01(motion);
+  if (motion < 0) motion = 0;
+  if (motion > 1) motion = 1;
 
   let intensity = options.intensity;
   if (intensity === undefined) {
     intensity = 0.4;
   }
-  intensity = clamp01(intensity);
+  if (intensity < 0) intensity = 0;
+  if (intensity > 1) intensity = 1;
 
   return {
     motion: motion,
@@ -145,11 +150,17 @@ export function renderVortex(container, data, options) {
   // setup
   const sourcePool = buildSourcePool(data);
   let simOptions = {
-    density: clamp01(options.density !== undefined ? options.density : 0.6),
-    motion: clamp01(options.motion !== undefined ? options.motion : 0.4),
-    intensity: clamp01(options.intensity !== undefined ? options.intensity : 0.4),
+    density: options.density !== undefined ? options.density : 0.6,
+    motion: options.motion !== undefined ? options.motion : 0.4,
+    intensity: options.intensity !== undefined ? options.intensity : 0.4,
     paused: options.paused ? options.paused : false
   };
+  if (simOptions.density < 0) simOptions.density = 0;
+  if (simOptions.density > 1) simOptions.density = 1;
+  if (simOptions.motion < 0) simOptions.motion = 0;
+  if (simOptions.motion > 1) simOptions.motion = 1;
+  if (simOptions.intensity < 0) simOptions.intensity = 0;
+  if (simOptions.intensity > 1) simOptions.intensity = 1;
 
   let size = getContainerSize(container);
   let width = size.width;
@@ -373,13 +384,19 @@ export function renderVortex(container, data, options) {
       const prevIntensity = simOptions.intensity;
 
       if (newOptions.density !== undefined) {
-        simOptions.density = clamp01(newOptions.density);
+        simOptions.density = newOptions.density;
+        if (simOptions.density < 0) simOptions.density = 0;
+        if (simOptions.density > 1) simOptions.density = 1;
       }
       if (newOptions.motion !== undefined) {
-        simOptions.motion = clamp01(newOptions.motion);
+        simOptions.motion = newOptions.motion;
+        if (simOptions.motion < 0) simOptions.motion = 0;
+        if (simOptions.motion > 1) simOptions.motion = 1;
       }
       if (newOptions.intensity !== undefined) {
-        simOptions.intensity = clamp01(newOptions.intensity);
+        simOptions.intensity = newOptions.intensity;
+        if (simOptions.intensity < 0) simOptions.intensity = 0;
+        if (simOptions.intensity > 1) simOptions.intensity = 1;
       }
       if (newOptions.paused !== undefined) {
         simOptions.paused = newOptions.paused;
@@ -464,9 +481,15 @@ export function renderOrbit(container, data, options) {
   destroyVortex(container);
 
   // setup
-  const density = clamp01(options.density !== undefined ? options.density : 0.6);
-  const motion = clamp01(options.motion !== undefined ? options.motion : 0.4);
-  const intensity = clamp01(options.intensity !== undefined ? options.intensity : 0.4);
+  let density = options.density !== undefined ? options.density : 0.6;
+  let motion = options.motion !== undefined ? options.motion : 0.4;
+  let intensity = options.intensity !== undefined ? options.intensity : 0.4;
+  if (density < 0) density = 0;
+  if (density > 1) density = 1;
+  if (motion < 0) motion = 0;
+  if (motion > 1) motion = 1;
+  if (intensity < 0) intensity = 0;
+  if (intensity > 1) intensity = 1;
   let paused = options.paused ? options.paused : false;
 
   let size = getContainerSize(container);

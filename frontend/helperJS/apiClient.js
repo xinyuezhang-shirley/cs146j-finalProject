@@ -1,96 +1,104 @@
-// Calls my Express API at /api/* (falls back to local textProcessing when offline).
+// api.js
+// handles talking to my Express backend
 
-import { analyzeTextLocally } from './textProcessing.js';
-import { clamp01 } from './controls.js';
+import { analyzeTextLocally } from './textProcessing.js'; // local fallback
 
-export function getApiBase() {
-  const { protocol, hostname, port } = window.location;
+const API_URL = 'http://localhost:3000'; // TODO: change to the actual API URL when hosted
 
-  if (protocol === 'file:' || (hostname !== 'localhost' && hostname !== '127.0.0.1')) {
-    return 'http://localhost:3000';
+
+// sends text to the backend for analysis -> I call my own api
+export async function analyzeText(text, settings = {}) {
+  let density = settings.density;
+  if (density === undefined) {
+    density = 1;
   }
-
-  if (port === '3000' || port === '') return '';
-  return 'http://localhost:3000';
-}
-
-function apiUrl(path) {
-  return `${getApiBase()}${path}`;
-}
-
-export async function analyzeText(text, options = {}) {
-  const density = clamp01(options.density ?? 1);
+  if (density > 1) density = 1;
+  if (density < 0) density = 0;
 
   try {
-    const response = await fetch(apiUrl('/api/analyze-text'), {
+    const response = await fetch(`${API_URL}/api/analyze-text`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, density })
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        text: text,
+        density: density
+      })
     });
 
-    if (!response.ok) throw new Error(`Echo API failed: ${response.status}`);
+    if (!response.ok) {
+      throw new Error('Echo API failed: ' + response.status);
+    }
 
     const data = await response.json();
-    return { ...data, meta: { ...data.meta, source: 'echo-api' } };
-  } catch {
+    return data;
+
+  } catch (error) {
+    console.log('could not analyze text, using local fallback');
+    console.log(error);
     return analyzeTextLocally(text, density);
   }
 }
 
-async function parseApiError(response, fallback) {
-  const body = await response.json().catch(() => ({}));
-  const detail = body.message ? `: ${body.message}` : '';
-  return new Error(body.error ? `${body.error}${detail}` : `${fallback} (HTTP ${response.status})`);
-}
 
+// saves a work to the gallery
 export async function saveWork(work) {
-  let response;
-
   try {
-    response = await fetch(apiUrl('/api/works'), {
+    const response = await fetch(`${API_URL}/api/works`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify(work)
     });
-  } catch {
-    throw new Error('Open http://localhost:3000 and run npm run dev — not Live Server.');
-  }
 
-  if (!response.ok) throw await parseApiError(response, 'Failed to save work');
-  return response.json();
+    return await response.json();
+
+  } catch (error) {
+    console.log('could not save work');
+    console.log(error);
+  }
 }
 
+
+// gets all saved works
 export async function fetchWorks() {
-  let response;
-
   try {
-    response = await fetch(apiUrl('/api/works'));
-  } catch {
-    throw new Error('Open http://localhost:3000 and run npm run dev.');
-  }
+    const response = await fetch(`${API_URL}/api/works`);
+    return await response.json();
 
-  if (!response.ok) throw await parseApiError(response, 'Failed to load gallery');
-  return response.json();
+  } catch (error) {
+    console.log('could not load gallery');
+    console.log(error);
+  }
 }
 
+
+// gets one work by id
 export async function fetchWork(id) {
-  const response = await fetch(apiUrl(`/api/works/${encodeURIComponent(id)}`));
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || 'Failed to load work');
+  try {
+    const response = await fetch(`${API_URL}/api/works/${id}`);
+    return await response.json();
+
+  } catch (error) {
+    console.log('could not load work');
+    console.log(error);
   }
-  return response.json();
 }
 
+
+// deletes a work
 export async function deleteWork(id) {
-  const response = await fetch(apiUrl(`/api/works/${encodeURIComponent(id)}`), {
-    method: 'DELETE'
-  });
+  try {
+    const response = await fetch(`${API_URL}/api/works/${id}`, {
+      method: 'DELETE'
+    });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || 'Failed to delete work');
+    return await response.json();
+
+  } catch (error) {
+    console.log('could not delete work');
+    console.log(error);
   }
-
-  return response.json();
 }

@@ -1,24 +1,27 @@
+<!-- about.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Echo — living visual systems for language. Words cluster, drift, orbit, and reform after the sentence ends.">
+  <meta name="description" content="Echo turns language into visual forms that drift, orbit, and keep moving after the sentence ends.">
   <title>About — ECHO</title>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=IBM+Plex+Mono:wght@300;400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="about.css">
-  <!-- Background image: frontend/assets/about/aboutBackground.JPEG -->
 </head>
-<body class="about-page">
 
+<body class="about-page">
   <a href="#main" class="skip-link">Skip to main content</a>
 
-  <header class="site-header about-page__header">
+  <header class="site-header">
     <nav class="site-nav about-nav" aria-label="Main navigation">
       <a href="index.html" class="site-nav__logo">• ECHO</a>
+
       <div class="site-nav__links">
         <a href="index.html" class="site-nav__link">Studio</a>
         <a href="gallery.html" class="site-nav__link">Gallery</a>
@@ -27,117 +30,92 @@
     </nav>
   </header>
 
-  <main id="main" class="about-installation">
+  <main id="main" class="about-main">
+    <div class="about-layout"> 
 
-    <div class="about-stage">
+      <!-- left side: pinned background image -->
+      <aside class="about-photo" aria-hidden="true"></aside>
 
-      <aside class="about-atmosphere" aria-hidden="true">
-        <div class="about-atmosphere__image" data-parallax></div>
-        <div class="about-atmosphere__veil"></div>
-      </aside>
+      <!-- right side: poem fragments + project description -->
+      <section class="about-text">
+        <div class="about-stack">
 
-      <div class="about-editorial">
+          <div class="poem-tabs" aria-label="Romantic Death — Linguistic Tragedy">
+            <p class="poem-line poem-line--title" data-reveal>Romantic Death — Linguistic Tragedy</p>
+            <p class="poem-line" data-reveal>That words flow from the tip of my tongue,</p>
+            <p class="poem-line" data-reveal>Lolita's spell upon me. Each stair case another drawn</p>
+            <p class="poem-line" data-reveal>Out syllable, dancing, seducing my loss. Romantic.</p>
+            <p class="poem-line" data-reveal>Tragedy.</p>
+            <p class="poem-line" data-reveal>I speak not your language. I cannot</p>
+            <p class="poem-line" data-reveal>Waltz your steps, you curious soul.</p>
+            <p class="poem-line" data-reveal>I cannot caress the paragraphs like some long lost home,</p>
+            <p class="poem-line" data-reveal>For every grain of sand marks me foreign</p>
+            <p class="poem-line" data-reveal>alone in the wilderness, a mournful tone.</p>
+            <p class="poem-line" data-reveal>You will be the death of me, if not my lover</p>
+            <p class="poem-line" data-reveal>Each syllable a perfect rhyme with mine</p>
+            <p class="poem-line" data-reveal>Each sentence a centimeter more somber</p>
+            <p class="poem-line" data-reveal>Until I lie forever under your spells</p>
+            <p class="poem-line" data-reveal>Until I forever mistreat you as well. Still,</p>
+            <p class="poem-line" data-reveal>Your step a little lighter, and I willingly close</p>
+            <p class="poem-line" data-reveal>my eyes forever.</p>
+            <p class="poem-line" data-reveal>To live a romantic death, to suffer a beautiful tragedy.</p>
+            <p class="poem-line" data-reveal>Is this not the beauty of language? To die,</p>
+            <p class="poem-line" data-reveal>yet live, eternally?</p>
+          </div>
 
-        <div class="about-composition">
-
-          <section class="about-fragments" aria-label="Romantic Death — Linguistic Tragedy">
-
-            <p class="about-tab about-tab--title" data-reveal>Romantic Death- Linguistic Tragedy</p>
-
-            <p class="about-tab" data-reveal>That words flow from the tip of my tongue,</p>
-            <p class="about-tab" data-reveal>Lolita's spell upon me. Each stair case another drawn</p>
-            <p class="about-tab" data-reveal>Out syllable, dancing, seducing my loss. Romantic.</p>
-            <p class="about-tab" data-reveal>Tragedy.</p>
-            <p class="about-tab" data-reveal>I speak not your language. I cannot</p>
-            <p class="about-tab" data-reveal>Waltz your steps, you curious soul.</p>
-            <p class="about-tab" data-reveal>I cannot caress the paragraphs like some long lost home,</p>
-            <p class="about-tab" data-reveal>For every grain of sand marks me foreign</p>
-            <p class="about-tab" data-reveal>alone in the wilderness, a mournful tone.</p>
-            <p class="about-tab" data-reveal>You will be the death of me, if not my lover</p>
-            <p class="about-tab" data-reveal>Each syllable a perfect rhyme with mine</p>
-            <p class="about-tab" data-reveal>Each sentence a centimeter more somber</p>
-            <p class="about-tab" data-reveal>Until I lie forever under your spells</p>
-            <p class="about-tab" data-reveal>Until I forever mistreat you as well. Still,</p>
-            <p class="about-tab" data-reveal>Your step a little lighter, and I willingly close</p>
-            <p class="about-tab" data-reveal>my eyes forever.</p>
-            <p class="about-tab" data-reveal>To live a romantic death, to suffer a beautiful tragedy.</p>
-            <p class="about-tab" data-reveal>Is this not the beauty of language? To die,</p>
-            <p class="about-tab" data-reveal>yet live, eternally?</p>
-
-          </section>
-
-          <article class="about-anchor" aria-labelledby="about-hero-title">
-
-            <header class="about-column__head">
-              <p class="about-kicker" data-reveal>About Echo</p>
-              <h1 id="about-hero-title" class="about-hero">
+          <article class="project-copy" aria-labelledby="about-title">
+            <header class="project-heading">
+              <p class="intro-label" data-reveal>About Echo</p>
+              <h1 id="about-title" class="project-title" data-reveal>
                 Words that continue <em>breathing</em>
               </h1>
             </header>
 
-            <div class="about-column">
-
+            <div class="copy-column">
               <section class="about-copy" aria-label="About Echo">
-                <p class="about-copy__text" data-reveal>
-                  Words are humanity's primary mechanism for understanding one another. Language carries emotion, memory, identity, intention. Yet modern communication increasingly prioritizes speed over reflection — compressing meaning into fragments, captions, messages, and signals. In trying to communicate faster, we often lose the emotional weight that language once carried.
-                </p>
-                <p class="about-copy__text about-copy__text--emphasis" data-reveal>
-                  Echo was created as a response to that loss.
-                </p>
-                <p class="about-copy__text" data-reveal>
-                  Echo transforms writing into living visual systems that continue evolving after the sentence itself ends. Instead of treating text as static information, Echo interprets language as movement: words cluster, drift, repeat, orbit, fragment, and reform over time. Some meanings remain central. Others dissolve into association, reinterpretation, memory, and emotional residue.
-                </p>
+                <p data-reveal>Words are humanity's primary mechanism for understanding one another. Language carries emotion, memory, identity, intention. Yet modern communication increasingly prioritizes speed over reflection — compressing meaning into fragments, captions, messages, and signals. In trying to communicate faster, we often lose the emotional weight that language once carried.</p>
+                <p class="soft-emphasis" data-reveal>Echo was created as a response to that loss.</p>
+                <p data-reveal>Echo transforms writing into living visual systems that continue evolving after the sentence itself ends. Instead of treating text as static information, Echo interprets language as movement: words cluster, drift, repeat, orbit, fragment, and reform over time.</p>
               </section>
 
-              <section class="about-modes" aria-labelledby="about-modes-title">
-                <h2 id="about-modes-title" class="about-section-label" data-reveal>Visualization modes</h2>
-                <p class="about-modes__intro" data-reveal>Each visualization mode explores this differently.</p>
+              <section class="mode-list" aria-labelledby="modes-title">
+                <h2 id="modes-title" class="section-label" data-reveal>Forms</h2>
+                <p class="mode-intro" data-reveal>Each form gives language a different kind of afterlife.</p>
 
-                <div class="about-modes__list">
-                  <article class="about-mode" data-reveal>
-                    <h3 class="about-mode__name">Network</h3>
-                    <p class="about-mode__desc">Maps relationships between connected ideas and recurring language patterns.</p>
+                <div class="mode-cards">
+                  <article class="mode-card" data-reveal>
+                    <h3>Constellation</h3>
+                    <p>Maps relationships between connected ideas and recurring language patterns.</p>
                   </article>
-                  <article class="about-mode" data-reveal>
-                    <h3 class="about-mode__name">Soup</h3>
-                    <p class="about-mode__desc">Disperses words into drifting atmospheric fields that move like memory.</p>
+
+                  <article class="mode-card" data-reveal>
+                    <h3>Drift</h3>
+                    <p>Disperses words into atmospheric fields that move like memory.</p>
                   </article>
-                  <article class="about-mode" data-reveal>
-                    <h3 class="about-mode__name">ASCII</h3>
-                    <p class="about-mode__desc">Compresses language into typographic residue and monochrome textual structures.</p>
+
+                  <article class="mode-card" data-reveal>
+                    <h3>Imprint</h3>
+                    <p>Compresses language into typographic residue and monochrome traces.</p>
                   </article>
-                  <article class="about-mode" data-reveal>
-                    <h3 class="about-mode__name">Vortex</h3>
-                    <p class="about-mode__desc">Pulls repeated language into spiraling systems shaped by motion and recurrence.</p>
+
+                  <article class="mode-card" data-reveal>
+                    <h3>Spiral</h3>
+                    <p>Pulls repeated language into motion, recurrence, and collapse.</p>
                   </article>
-                  <article class="about-mode" data-reveal>
-                    <h3 class="about-mode__name">Orbit</h3>
-                    <p class="about-mode__desc">Organizes words around central semantic anchors and emotional gravity.</p>
+
+                  <article class="mode-card" data-reveal>
+                    <h3>Gravity</h3>
+                    <p>Organizes words around semantic anchors and emotional weight.</p>
                   </article>
                 </div>
               </section>
-
-              <footer class="about-closing">
-                <p class="about-closing__text" data-reveal>
-                  Echo is less about generating images from text and more about observing what language continues doing after speech ends.
-                </p>
-                <p class="about-closing__statement" data-reveal>
-                  A sentence is never completely still.
-                </p>
-                <p class="about-closing__support" data-reveal>
-                  Some words disappear immediately. Others continue echoing.
-                </p>
-                <a href="index.html#compose" class="about-closing__link" data-reveal>Enter the studio</a>
-              </footer>
-
+              
             </div>
-
           </article>
 
         </div>
-      </div>
+      </section>
     </div>
-
   </main>
 
   <script type="module" src="about.js"></script>

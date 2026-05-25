@@ -1,6 +1,6 @@
 import { applyTheme, initTheme } from './helperJS/theme.js';
 import { fetchWorks, deleteWork } from './helperJS/apiClient.js';
-import { renderEchoMode, destroyEchoMode, clamp01 } from './helperJS/controls.js';
+import { renderEchoMode, destroyEchoMode } from './helperJS/controls.js';
 
 const notice = document.getElementById('gallery-notice');
 const grid = document.getElementById('gallery-grid');
@@ -163,10 +163,20 @@ function selectWork(id, { scroll = true } = {}) {
       meta: saved.meta || {}
     };
 
+    let density = Number(work.density != null ? work.density : extra.density) || 0.6;
+    let motion = Number(work.motion != null ? work.motion : extra.motion) || 0.4;
+    let intensity = Number(work.intensity != null ? work.intensity : extra.intensity) || 0.4;
+    if (density < 0) density = 0;
+    if (density > 1) density = 1;
+    if (motion < 0) motion = 0;
+    if (motion > 1) motion = 1;
+    if (intensity < 0) intensity = 0;
+    if (intensity > 1) intensity = 1;
+
     const previewOptions = {
-      density: clamp01(Number(work.density != null ? work.density : extra.density) || 0.6),
-      motion: clamp01(Number(work.motion != null ? work.motion : extra.motion) || 0.4),
-      intensity: clamp01(Number(work.intensity != null ? work.intensity : extra.intensity) || 0.4),
+      density: density,
+      motion: motion,
+      intensity: intensity,
       paused: Boolean(extra.paused)
     };
 

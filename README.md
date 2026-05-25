@@ -6,26 +6,23 @@ A minimalist text art studio where users paste prose and transform it into inter
 
 ```
 ├── backend/
-│   ├── server.js              # Express API (analysis, art data, gallery works)
-│   ├── supabaseClient.js      # Supabase service-role client (backend only)
-│   ├── sql/echo_works.sql     # Gallery table schema
+│   ├── server.js              # Express API + gallery routes
 │   ├── lib/
-│   │   ├── analyzeText.js
-│   │   ├── worksApi.js        # Save/load/delete gallery works
-│   │   └── …
-│   ├── .env.example
-│   └── package.json
+│   │   ├── analyzeText.js     # word extraction, links, Datamuse (optional)
+│   │   └── artData.js         # payloads for each visualization mode
+│   ├── sql/echo_works.sql
+│   └── .env.example
 ├── frontend/
 │   ├── index.html             # Studio
-│   ├── gallery.html           # Gallery + fixed preview
-│   ├── main.js
-│   ├── gallery.js
+│   ├── main.js                # compose → transform → render
+│   ├── gallery.html / gallery.js
+│   ├── styles.css
 │   └── helperJS/
-│       ├── apiClient.js       # fetch() client for /api/*
-│       ├── renderMode.js      # Shared renderer dispatch (Studio + Gallery)
-│       └── …
-├── .env.example
-└── package.json
+│       ├── apiClient.js       # fetch /api/*
+│       ├── textProcessing.js  # offline fallback
+│       ├── controls.js        # sliders, canvas sizing, render dispatch
+│       ├── network.js / soup.js / ascii.js / vortex.js
+│       └── theme.js
 ```
 
 ## Pages

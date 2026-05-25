@@ -1,534 +1,353 @@
-/* ==========================================================================
-   ECHO — About page · strict editorial installation
-   Image: frontend/assets/about/aboutBackground.JPEG  →  --about-image below
-   ========================================================================== */
-
+/* about.css */
 body.about-page {
-  --about-paper: #f3f1eb;
-  --about-ink: #121212;
-  --about-muted: #5c5852;
-  --about-serif: "Instrument Serif", "Cormorant Garamond", "EB Garamond", Georgia, serif;
-  --about-serif-body: "Cormorant Garamond", "EB Garamond", Georgia, serif;
-  --about-mono: "IBM Plex Mono", "Courier New", monospace;
+  --paper: #f3f1eb;
+  --ink: #121212;
+  --soft-ink: #5c5852;
+
+  --display-serif: "Instrument Serif", "Cormorant Garamond", "EB Garamond", Georgia, serif;
+  --body-serif: "Cormorant Garamond", "EB Garamond", Georgia, serif;
+  --mono: "IBM Plex Mono", "Courier New", monospace;
+
   --about-image: url("assets/about/aboutBackground.JPEG");
-  --about-image-position: center center;
-  --about-rhythm: clamp(2rem, 4vh, 3rem);
-  --about-gap: 0.75rem;
-  --about-section-gap: clamp(1.35rem, 2.5vh, 1.85rem);
-  --about-measure: min(100%, 28rem);
-  background: var(--about-paper);
-  color: var(--about-ink);
+  --small-gap: 0.75rem;
+  --section-gap: clamp(1.35rem, 2.5vh, 1.85rem);
+
+  background: var(--paper);
+  color: var(--ink);
 }
 
 body.about-page .site-nav__logo,
-body.about-page .site-nav__link {
-  color: var(--about-ink);
-}
-
-body.about-page .site-nav__link {
-  color: var(--about-muted);
-}
-
 body.about-page .site-nav__link[aria-current="page"],
 body.about-page .site-nav__link:hover {
-  color: var(--about-ink);
+  color: var(--ink);
 }
 
+body.about-page .site-nav__link {
+  color: var(--soft-ink);
+}
+
+/* about nav bar, changes opacity when scrolling */
 .about-nav {
-  background: color-mix(in srgb, var(--about-paper) 82%, transparent);
+  background: color-mix(in srgb, var(--paper) 82%, transparent);
   backdrop-filter: blur(8px);
   transition: background 0.3s ease;
 }
 
 .about-nav.is-scrolled {
-  background: color-mix(in srgb, var(--about-paper) 96%, transparent);
+  background: color-mix(in srgb, var(--paper) 96%, transparent);
 }
 
-.about-installation {
-  position: relative;
-  overflow-x: clip;
-  overflow-y: visible;
-}
-
-/* ── Split stage: image ~57% · editorial ~43% ── */
-.about-stage {
+/* page split: image on the left, writing on the right */
+.about-layout {
   display: grid;
   grid-template-columns: 1fr;
   min-height: 100vh;
 }
 
-.about-atmosphere {
+/* left column — background photo */
+.about-photo {
   position: relative;
   min-height: clamp(40vh, 48vh, 54vh);
   overflow: hidden;
-}
-
-.about-atmosphere__image {
-  position: absolute;
-  inset: 0;
   background-color: #1a1917;
   background-image: var(--about-image);
   background-size: cover;
-  background-position: var(--about-image-position);
+  background-position: center center;
   background-repeat: no-repeat;
-  will-change: transform;
 }
 
-.about-atmosphere__veil {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.48) 0%, transparent 22%),
-    linear-gradient(0deg, rgba(0, 0, 0, 0.32) 0%, transparent 18%);
-  pointer-events: none;
-}
-
-.about-editorial {
+.about-text {
   position: relative;
   z-index: 2;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  gap: 1rem;
   padding:
     calc(var(--nav-height) + 1rem)
     clamp(1rem, 2.5vw, 1.75rem)
     clamp(3.5rem, 10vh, 6rem);
 }
 
-/* ── Poem + editorial sit side-by-side; columns height = content only ── */
-.about-composition {
+.about-stack {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  align-items: stretch;
-  width: 100%;
 }
 
-/* ── Right editorial column — single aligned axis ── */
-.about-anchor {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: var(--about-section-gap);
-}
-
-.about-column {
-  display: flex;
-  flex-direction: column;
-  gap: var(--about-section-gap);
-  width: 100%;
-  max-width: var(--about-measure);
-}
-
-.about-column__head,
+.project-copy,
+.copy-column,
+.project-heading,
 .about-copy,
-.about-modes,
-.about-closing {
+.mode-list {
   width: 100%;
-  max-width: var(--about-measure);
 }
 
-.about-column__head {
+.project-copy,
+.copy-column,
+.project-heading,
+.about-copy,
+.mode-list,
+.mode-cards {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
-  margin: 0;
-  padding: 0;
 }
 
-.about-kicker,
-.about-section-label {
+.project-copy,
+.copy-column {
+  gap: var(--section-gap);
+}
+
+/* project copy should not be covered by the poem tabs */
+.project-copy {
+  z-index: 3;
+}
+
+.project-heading {
+  gap: 0.85rem;
+}
+
+.about-copy,
+.mode-list{
+  gap: var(--small-gap);
+}
+
+.intro-label,
+.section-label {
   margin: 0;
-  font-family: var(--about-mono);
+  font-family: var(--mono);
   font-size: clamp(0.55rem, 0.95vw, 0.62rem);
   font-weight: 400;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--about-muted);
+  color: var(--soft-ink);
 }
 
-.about-hero {
+.project-title {
   margin: 0;
-  font-family: var(--about-serif);
+  font-family: var(--display-serif);
   font-size: clamp(1.85rem, 4vw, 2.75rem);
   font-weight: 400;
   line-height: 1.08;
   letter-spacing: -0.024em;
 }
 
-.about-hero em {
+.project-title em {
   font-style: italic;
 }
 
-/* ── Body copy ── */
-.about-copy {
-  display: flex;
-  flex-direction: column;
-  gap: var(--about-gap);
+.about-copy p,
+.mode-intro,
+.mode-card p {
   margin: 0;
-  padding: 0;
-}
-
-.about-copy__text {
-  margin: 0;
-  font-family: var(--about-serif-body);
-  font-size: clamp(1rem, 1.5vw, 1.12rem);
-  line-height: 1.52;
+  font-family: var(--body-serif);
+  font-size: clamp(0.98rem, 1.4vw, 1.08rem);
+  line-height: 1.48;
   letter-spacing: 0.003em;
 }
 
-.about-copy__text--emphasis {
-  font-family: var(--about-serif);
+.about-copy p {
+  font-size: clamp(1rem, 1.5vw, 1.12rem);
+  line-height: 1.52;
+}
+
+.soft-emphasis {
+  font-family: var(--display-serif);
   font-size: clamp(1.05rem, 1.65vw, 1.2rem);
   line-height: 1.4;
   letter-spacing: -0.01em;
   font-style: italic;
 }
 
-/* ── Visualization modes — stacked list ── */
-.about-modes {
-  display: flex;
-  flex-direction: column;
-  gap: var(--about-gap);
-  margin: 0;
-  padding: 0;
+.mode-intro{
+  color: var(--soft-ink);
 }
 
-.about-modes__intro {
-  margin: 0;
-  font-family: var(--about-serif-body);
-  font-size: clamp(0.98rem, 1.4vw, 1.08rem);
-  line-height: 1.45;
-  color: var(--about-muted);
-}
-
-.about-modes__list {
-  display: flex;
-  flex-direction: column;
+.mode-cards {
   gap: clamp(0.85rem, 1.5vh, 1.05rem);
-  margin: 0;
-  padding: 0;
 }
 
-.about-mode {
+.mode-card {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  margin: 0;
-  padding: 0;
 }
 
-.about-mode__name {
+.mode-card h3 {
   margin: 0;
-  font-family: var(--about-mono);
+  font-family: var(--mono);
   font-size: clamp(0.58rem, 0.95vw, 0.65rem);
   font-weight: 400;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--about-ink);
+  color: var(--ink);
 }
 
-.about-mode__desc {
-  margin: 0;
-  font-family: var(--about-serif-body);
-  font-size: clamp(0.98rem, 1.4vw, 1.08rem);
-  line-height: 1.48;
-  letter-spacing: 0.003em;
-  color: var(--about-ink);
-}
+/* poem tabs: each line has a slightly different width/offset */
+.poem-tabs {
+  --poem-gap: clamp(0.2rem, 3vh, 2rem);
 
-/* ── Closing ── */
-.about-closing {
   display: flex;
   flex-direction: column;
-  gap: var(--about-gap);
-  margin: 0;
-  padding: 0;
-}
-
-.about-closing__text,
-.about-closing__support {
-  margin: 0;
-  font-family: var(--about-serif-body);
-  font-size: clamp(0.98rem, 1.4vw, 1.08rem);
-  line-height: 1.48;
-  letter-spacing: 0.003em;
-}
-
-.about-closing__text {
-  color: var(--about-muted);
-}
-
-.about-closing__statement {
-  margin: 0;
-  font-family: var(--about-serif);
-  font-size: clamp(1.4rem, 2.6vw, 1.95rem);
-  font-weight: 400;
-  line-height: 1.14;
-  letter-spacing: -0.018em;
-  padding-top: 0.15rem;
-}
-
-.about-closing__support {
-  font-style: italic;
-  color: var(--about-muted);
-}
-
-.about-closing__link {
-  margin-top: 0.25rem;
-  font-family: var(--about-mono);
-  font-size: clamp(0.58rem, 1vw, 0.65rem);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--about-ink);
-  border-bottom: 1px solid var(--about-ink);
-  padding-bottom: 0.35rem;
-  width: fit-content;
-  transition: opacity 0.2s ease;
-}
-
-.about-closing__link:hover {
-  opacity: 0.55;
-}
-
-/* ── Stepped protruding tabs ── */
-.about-fragments {
-  --about-rhythm: clamp(0.2rem, 3vh, 2rem);
-  display: flex;
-  flex-direction: column;
-  gap: var(--about-rhythm);
-  padding-bottom: clamp(2.5rem, 6vh, 4rem);
+  gap: var(--poem-gap);
   min-width: 0;
+  padding-bottom: clamp(2.5rem, 6vh, 4rem);
 }
 
-.about-tab {
-  --protrude: 1rem;
-  --span: 78%;
+.poem-line {
+  --pull-left: 0rem;
+  --line-width: 78%;
 
-  width: var(--span);
-  min-height: auto;
-  margin: 0;
-  margin-left: var(--protrude);
+  width: var(--line-width);
+  margin: 0 0 0 var(--pull-left);
+  padding: 0.35rem clamp(0.85rem, 2vw, 1.75rem) 0.45rem;
 
-  display: flex;
-  align-items: center;
+  background: var(--paper);
+  color: var(--ink);
 
-  padding-block: 0.35rem 0.45rem;
-  padding-inline: clamp(0.85rem, 2vw, 1.75rem);
-
-  background: var(--about-paper);
-  border: none;
-  box-shadow: none;
-
-  font-family: var(--about-serif-body);
+  font-family: var(--body-serif);
   font-size: clamp(0.88rem, 1.45vw, 1.08rem);
-  font-weight: 400;
   line-height: 1.28;
   letter-spacing: 0.005em;
-  color: var(--about-ink);
 }
 
-.about-tab--title {
-  font-family: var(--about-mono);
+.poem-line--title {
+  font-family: var(--mono);
   font-size: clamp(0.52rem, 0.95vw, 0.6rem);
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--about-muted);
-  min-height: auto;
-  padding-block: 0.4rem 0.45rem;
+  color: var(--soft-ink);
 }
 
-.about-tab--italic {
-  font-style: italic;
-}
+.poem-line:nth-child(6n + 1) { --line-width: 82%; }
+.poem-line:nth-child(6n + 2) { --line-width: 74%; }
+.poem-line:nth-child(6n + 3) { --line-width: 88%; }
+.poem-line:nth-child(6n + 4) { --line-width: 70%; }
+.poem-line:nth-child(6n + 5) { --line-width: 92%; }
+.poem-line:nth-child(6n + 6) { --line-width: 76%; }
 
-.about-tab:nth-child(6n + 1) { --protrude: 0rem; --span: 82%; }
-.about-tab:nth-child(6n + 2) { --protrude: 0rem; --span: 74%; }
-.about-tab:nth-child(6n + 3) { --protrude: 0rem; --span: 88%; }
-.about-tab:nth-child(6n + 4) { --protrude: 0rem; --span: 70%; }
-.about-tab:nth-child(6n + 5) { --protrude: 0rem; --span: 92%; }
-.about-tab:nth-child(6n + 6) { --protrude: 0rem; --span: 76%; }
-
-.about-fragments .about-tab:last-child {
-  padding-bottom: 0.65rem;
-}
-
-.about-footer {
-  padding-top: 0.5rem;
-  margin: 0;
-  font-family: var(--about-mono);
-  font-size: clamp(0.52rem, 1vw, 0.6rem);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--about-muted);
-}
-
-/* ── Tablet: 55 / 45 stage split ── */
+/* tablet and desktop: image becomes sticky, poem overlaps toward it */
 @media (min-width: 640px) {
-  .about-stage {
+  .about-layout {
     grid-template-columns: minmax(0, 0.55fr) minmax(0, 0.45fr);
   }
 
-  .about-atmosphere {
+  .about-photo {
     position: sticky;
     top: 0;
     grid-column: 1;
     grid-row: 1;
-    align-self: start;
-    min-height: 100vh;
     height: 100vh;
+    min-height: 100vh;
   }
 
-  .about-editorial {
+  .about-text {
     grid-column: 2;
+    padding-left: clamp(1.5rem, 3vw, 2.5rem);
     padding-right: clamp(1rem, 2vw, 1.5rem);
-    padding-left: clamp(0.35rem, 0.75vw, 0.65rem);
   }
 
-  .about-composition {
+  .about-stack {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
     align-items: start;
   }
 
-  .about-fragments {
+  .poem-tabs,
+  .project-copy {
     grid-column: 1;
     grid-row: 1;
-    min-width: 0;
-    align-items: flex-start;
+  }
+
+  .poem-tabs {
     z-index: 2;
     width: 52%;
     max-width: 52%;
   }
 
-  /* Description sits in the same cell, inset from the left so it tucks under poem tabs */
-  .about-anchor {
-    grid-column: 1;
-    grid-row: 1;
-    min-width: 0;
-    margin-left: 0;
-    padding-left: 30%;
-    padding-right: 0;
+  .project-copy {
     z-index: 1;
   }
 
-  .about-tab:nth-child(6n + 1) { --protrude: clamp(-14vw, -8rem, -3rem); --span: 88%; }
-  .about-tab:nth-child(6n + 2) { --protrude: clamp(-20vw, -12rem, -5rem); --span: 80%; }
-  .about-tab:nth-child(6n + 3) { --protrude: clamp(-26vw, -16rem, -7rem); --span: 92%; }
-  .about-tab:nth-child(6n + 4) { --protrude: clamp(-18vw, -10rem, -4rem); --span: 76%; }
-  .about-tab:nth-child(6n + 5) { --protrude: clamp(-30vw, -18rem, -8rem); --span: 96%; }
-  .about-tab:nth-child(6n + 6) { --protrude: clamp(-22vw, -13rem, -5.5rem); --span: 82%; }
+  .poem-line:nth-child(6n + 1) { --pull-left: clamp(-14vw, -8rem, -3rem); --line-width: 88%; }
+  .poem-line:nth-child(6n + 2) { --pull-left: clamp(-20vw, -12rem, -5rem); --line-width: 80%; }
+  .poem-line:nth-child(6n + 3) { --pull-left: clamp(-26vw, -16rem, -7rem); --line-width: 92%; }
+  .poem-line:nth-child(6n + 4) { --pull-left: clamp(-18vw, -10rem, -4rem); --line-width: 76%; }
+  .poem-line:nth-child(6n + 5) { --pull-left: clamp(-30vw, -18rem, -8rem); --line-width: 96%; }
+  .poem-line:nth-child(6n + 6) { --pull-left: clamp(-22vw, -13rem, -5.5rem); --line-width: 82%; }
 }
 
-/* ── Desktop ── */
+/* all the media queries are for the sake of looking good on different screens */
+/* tablet: image is wider, poem overlaps to the left */
 @media (min-width: 900px) {
-  .about-stage {
+  .about-layout {
     grid-template-columns: minmax(0, 0.57fr) minmax(0, 0.43fr);
   }
 
-  .about-editorial {
+  .about-text {
+    padding-left: clamp(2rem, 3.5vw, 3rem);
     padding-right: clamp(1rem, 2vw, 1.75rem);
-    padding-left: clamp(0.25rem, 0.5vw, 0.5rem);
   }
 
-  .about-anchor {
-    padding-left: 28%;
-  }
-
-  .about-tab {
+  .poem-line {
     font-size: clamp(0.9rem, 1.35vw, 1.05rem);
   }
 
-  .about-tab:nth-child(6n + 1) { --protrude: clamp(-28vw, -20rem, -9rem); --span: 96%; }
-  .about-tab:nth-child(6n + 2) { --protrude: clamp(-36vw, -26rem, -12rem); --span: 86%; }
-  .about-tab:nth-child(6n + 3) { --protrude: clamp(-44vw, -32rem, -15rem); --span: 100%; }
-  .about-tab:nth-child(6n + 4) { --protrude: clamp(-32vw, -22rem, -10rem); --span: 82%; }
-  .about-tab:nth-child(6n + 5) { --protrude: clamp(-48vw, -36rem, -17rem); --span: 104%; }
-  .about-tab:nth-child(6n + 6) { --protrude: clamp(-38vw, -28rem, -13rem); --span: 88%; }
+  .poem-line:nth-child(6n + 1) { --pull-left: clamp(-28vw, -20rem, -9rem); --line-width: 96%; }
+  .poem-line:nth-child(6n + 2) { --pull-left: clamp(-36vw, -26rem, -12rem); --line-width: 86%; }
+  .poem-line:nth-child(6n + 3) { --pull-left: clamp(-44vw, -32rem, -15rem); --line-width: 100%; }
+  .poem-line:nth-child(6n + 4) { --pull-left: clamp(-32vw, -22rem, -10rem); --line-width: 82%; }
+  .poem-line:nth-child(6n + 5) { --pull-left: clamp(-48vw, -36rem, -17rem); --line-width: 104%; }
+  .poem-line:nth-child(6n + 6) { --pull-left: clamp(-38vw, -28rem, -13rem); --line-width: 88%; }
 }
 
+/* desktop: image is wider, poem overlaps to the left */
 @media (min-width: 1200px) {
-  .about-stage {
+  .about-layout {
     grid-template-columns: minmax(0, 0.58fr) minmax(0, 0.42fr);
   }
 
-  .about-anchor {
-    padding-left: 26%;
-  }
-
-  body.about-page {
-    --about-measure: min(100%, 26rem);
-  }
-
-  .about-tab:nth-child(6n + 3) { --protrude: clamp(-50vw, -38rem, -18rem); }
-  .about-tab:nth-child(6n + 5) { --protrude: clamp(-54vw, -42rem, -20rem); }
+  .poem-line:nth-child(6n + 3) { --pull-left: clamp(-50vw, -38rem, -18rem); }
+  .poem-line:nth-child(6n + 5) { --pull-left: clamp(-54vw, -42rem, -20rem); }
 }
 
-/* ── Mobile ── */
+/* mobile: image is taller, poem overlaps to the right */
 @media (max-width: 639px) {
-  .about-atmosphere {
+  .about-photo {
     min-height: clamp(44vh, 50vh, 56vh);
-  }
-
-  .about-atmosphere__image {
     background-position: center 36%;
   }
 
-  .about-composition {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .about-fragments {
-    align-items: stretch;
-  }
-
-  .about-anchor {
+  .project-copy {
     order: -1;
-    margin-left: 0;
     margin-bottom: 0.35rem;
-    padding-left: 0;
   }
 
-  .about-column,
-  .about-column__head {
+  .copy-column,
+  .project-heading {
     max-width: 100%;
   }
 
-  .about-hero {
+  .project-title {
     font-size: clamp(1.95rem, 7vw, 2.65rem);
   }
-
-  .about-closing__statement {
-    font-size: clamp(1.35rem, 5.5vw, 1.85rem);
-  }
-
-  .about-tab {
+  .poem-line {
     width: 100%;
     margin-left: 0 !important;
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .about-atmosphere__image {
-    transform: none !important;
+/* tablet and desktop: image becomes sticky, poem overlaps toward it */
+@media (max-width: 900px) {
+  .poem-tabs {
+    --poem-gap: clamp(0.2rem, 2vh, 1.25rem);
   }
 }
 
 @media (max-height: 760px) {
-  .about-fragments {
-    --about-rhythm: clamp(0.15rem, 2vh, 1rem);
+  .poem-tabs {
+    --poem-gap: clamp(0.15rem, 2vh, 1rem);
   }
 
-  .about-tab {
+  .poem-line {
     padding-block: 0.28rem 0.35rem;
   }
 }
 
-@media (max-width: 900px) {
-  .about-fragments {
-    --about-rhythm: clamp(0.2rem, 2vh, 1.25rem);
-  }
-}

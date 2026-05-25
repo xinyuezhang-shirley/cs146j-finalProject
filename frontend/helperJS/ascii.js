@@ -1,7 +1,5 @@
 // ASCII text-art mode — animated monospace layout.
 
-import { clamp01 } from './controls.js';
-
 // remove any canvas/svg left in the studio container
 function clearVisualization(container) {
   if (!container) {
@@ -47,19 +45,22 @@ function getAsciiParams(options) {
   if (density === undefined) {
     density = 0.6;
   }
-  density = clamp01(density);
+  if (density < 0) density = 0;
+  if (density > 1) density = 1;
 
   let motion = options.motion;
   if (motion === undefined) {
     motion = 0.4;
   }
-  motion = clamp01(motion);
+  if (motion < 0) motion = 0;
+  if (motion > 1) motion = 1;
 
   let intensity = options.intensity;
   if (intensity === undefined) {
     intensity = 0.4;
   }
-  intensity = clamp01(intensity);
+  if (intensity < 0) intensity = 0;
+  if (intensity > 1) intensity = 1;
 
   return {
     density: density,
@@ -199,11 +200,17 @@ export function renderAscii(container, asciiEl, data, options) {
   asciiEl.hidden = false;
 
   let simOptions = {
-    density: clamp01(options.density !== undefined ? options.density : 0.6),
-    motion: clamp01(options.motion !== undefined ? options.motion : 0.4),
-    intensity: clamp01(options.intensity !== undefined ? options.intensity : 0.4),
+    density: options.density !== undefined ? options.density : 0.6,
+    motion: options.motion !== undefined ? options.motion : 0.4,
+    intensity: options.intensity !== undefined ? options.intensity : 0.4,
     paused: options.paused ? options.paused : false
   };
+  if (simOptions.density < 0) simOptions.density = 0;
+  if (simOptions.density > 1) simOptions.density = 1;
+  if (simOptions.motion < 0) simOptions.motion = 0;
+  if (simOptions.motion > 1) simOptions.motion = 1;
+  if (simOptions.intensity < 0) simOptions.intensity = 0;
+  if (simOptions.intensity > 1) simOptions.intensity = 1;
 
   let params = getAsciiParams(simOptions);
   let tick = 0;
@@ -236,13 +243,19 @@ export function renderAscii(container, asciiEl, data, options) {
         newOptions = {};
       }
       if (newOptions.density !== undefined) {
-        simOptions.density = clamp01(newOptions.density);
+        simOptions.density = newOptions.density;
+        if (simOptions.density < 0) simOptions.density = 0;
+        if (simOptions.density > 1) simOptions.density = 1;
       }
       if (newOptions.motion !== undefined) {
-        simOptions.motion = clamp01(newOptions.motion);
+        simOptions.motion = newOptions.motion;
+        if (simOptions.motion < 0) simOptions.motion = 0;
+        if (simOptions.motion > 1) simOptions.motion = 1;
       }
       if (newOptions.intensity !== undefined) {
-        simOptions.intensity = clamp01(newOptions.intensity);
+        simOptions.intensity = newOptions.intensity;
+        if (simOptions.intensity < 0) simOptions.intensity = 0;
+        if (simOptions.intensity > 1) simOptions.intensity = 1;
       }
       if (newOptions.paused !== undefined) {
         simOptions.paused = newOptions.paused;
