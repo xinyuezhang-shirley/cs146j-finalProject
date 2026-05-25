@@ -87,6 +87,28 @@ export async function fetchWork(id) {
   }
 }
 
+// updates saved work settings
+export async function updateWork(id, patch) {
+  try {
+    const response = await fetch(`${API_URL}/api/works/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(patch)
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error || `Failed to update work (HTTP ${response.status})`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error.message) throw error;
+    throw new Error('Could not update work — is the backend running?');
+  }
+}
 
 // deletes a work
 export async function deleteWork(id) {

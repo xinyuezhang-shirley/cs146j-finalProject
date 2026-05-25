@@ -41,27 +41,59 @@
     </div>
   </main>
 
-  <aside
-    id="gallery-preview"
-    class="gallery-preview"
-    aria-labelledby="gallery-preview-heading"
-  >
-    <div class="gallery-preview__meta">
-      <h2 id="gallery-preview-heading" class="gallery-preview__label">Preview</h2>
-      <p id="gallery-preview-title" class="gallery-preview__title">Select a saved Echo piece to preview it.</p>
-      <p id="gallery-preview-settings" class="gallery-preview__settings"></p>
+  <div id="gallery-modal" class="gallery-modal" hidden>
+    <div class="gallery-modal__backdrop" data-close></div>
+    <div
+      class="gallery-modal__dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="gallery-preview-title"
+    >
+      <header class="gallery-modal__header">
+        <div class="gallery-modal__meta">
+          <p id="gallery-preview-settings" class="gallery-modal__settings"></p>
+          <h2 id="gallery-preview-title" class="gallery-modal__title">Preview</h2>
+        </div>
+        <button
+          type="button"
+          id="gallery-modal-close"
+          class="gallery-modal__close"
+          aria-label="Close preview"
+          data-close
+        >✕</button>
+      </header>
+
+      <div class="gallery-modal__stage">
+        <div
+          id="gallery-preview-canvas"
+          class="studio-canvas gallery-modal__canvas"
+          role="img"
+          aria-label="Saved Echo visualization preview"
+          tabindex="0"
+        ></div>
+        <pre id="gallery-preview-ascii" class="ascii-output gallery-modal__ascii" hidden aria-label="ASCII preview output"></pre>
+      </div>
+
+      <div class="gallery-modal__controls">
+        <div class="control-group">
+          <label for="modal-intensity-slider" class="control-label">Intensity <span class="control-value" id="modal-intensity-value">40</span></label>
+          <input type="range" id="modal-intensity-slider" class="control-range" min="0" max="100" value="40" aria-valuemin="0" aria-valuemax="100" aria-valuenow="40">
+        </div>
+        <div class="control-group">
+          <label for="modal-density-slider" class="control-label">Density <span class="control-value" id="modal-density-value">60</span></label>
+          <input type="range" id="modal-density-slider" class="control-range" min="0" max="100" value="60" aria-valuemin="0" aria-valuemax="100" aria-valuenow="60">
+        </div>
+        <div class="control-group">
+          <label for="modal-motion-slider" class="control-label">Motion <span class="control-value" id="modal-motion-value">40</span></label>
+          <input type="range" id="modal-motion-slider" class="control-range" min="0" max="100" value="40" aria-valuemin="0" aria-valuemax="100" aria-valuenow="40">
+        </div>
+        <div class="gallery-modal__actions">
+          <button type="button" class="studio-save-btn" id="gallery-modal-save">Save changes</button>
+          <p id="gallery-modal-status" class="gallery-modal__status" role="status" aria-live="polite"></p>
+        </div>
+      </div>
     </div>
-    <div class="gallery-preview__stage">
-      <div
-        id="gallery-preview-canvas"
-        class="studio-canvas gallery-preview__canvas"
-        role="img"
-        aria-label="Saved Echo visualization preview"
-        tabindex="0"
-      ></div>
-      <pre id="gallery-preview-ascii" class="ascii-output gallery-preview__ascii" hidden aria-label="ASCII preview output"></pre>
-    </div>
-  </aside>
+  </div>
 
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script type="module" src="gallery.js"></script>
