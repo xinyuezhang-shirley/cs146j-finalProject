@@ -1,40 +1,38 @@
-/**
- * Echo API — my custom Express server.
- *
- * This server is the source of truth for text analysis and art-data generation.
- * It imports backend/lib modules and exposes REST routes under /api/*.
- *
- * Datamuse enrichment runs server-side only (NETWORK_DATAMUSE=true by default).
- * Set USE_DATAMUSE=true for global enrichment, or NETWORK_DATAMUSE=false for fully local graphs.
- */
+// Echo API — Express server for text analysis, art data, and gallery saves.
 
 const path = require('path');
-
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const express = require('express');
-const config = require('./lib/config');
-const { isSupabaseConfigured } = require('./supabaseClient');
-const { analyzeText } = require('./lib/analyzeText');
-const { fetchDatamuseRelatedWords } = require('./lib/enrichment');
-const { generateNetworkData } = require('./lib/generateNetwork');
-const { generateSoupData, generateVortexData, generateOrbitData } = require('./lib/generateParticles');
-const { generateAsciiData } = require('./lib/generateAscii');
+const { createClient } = require('@supabase/supabase-js');
+const { analyzeText, fetchDatamuseRelatedWords } = require('./lib/analyzeText');
 const {
-  ValidationError,
-  createWork,
-  listWorks,
-  getWorkById,
-  deleteWorkById,
-  requireSupabase
-} = require('./lib/worksApi');
+  generateNetworkData,
+  generateSoupData,
+  generateVortexData,
+  generateOrbitData,
+  generateAsciiData
+} = require('./lib/artData');
 
-const app = express();
+const PORT = Number(process.env.PORT) || 3000;
+const USE_DATAMUSE = process.env.USE_DATAMUSE === 'true' || process.env.USE_DATAMUSE === '1';
+const NETWORK_DATAMUSE = process.env.NETWORK_DATAMUSE === 'false' || process.env.NETWORK_DATAMUSE === '0'
+  ? false
+  : true;
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase = supabaseUrl && supabaseServiceKey
+  ? createClient(supabaseUrl, supabaseServiceKey)
+  : null;
+
+const VALID_MODES = new Set(['network', 'soup', 'ascii', 'vortex', 'orbit']);
 const frontendPath = path.join(__dirname, '..', 'frontend');
 
+const app = express();
 app.use(express.json({ limit: '2mb' }));
 
-// Allow gallery/save API calls when the HTML is opened via Live Server on another port.
+// Live Server on another port still needs CORS for /api calls.
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (origin && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
@@ -49,9 +47,115 @@ app.use((req, res, next) => {
   next();
 });
 
+function isSupabaseConfigured() {
+  return Boolean(supabase);
+}
+
+class ValidationError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
+
+function clampUnit(value, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(1, Math.max(0, n));
+}
+
+function toCamel(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    title: row.title,
+    originalText: row.original_text,
+    coreWords: row.core_words ?? [],
+    relatedWords: row.related_words ?? [],
+    particles: row.particles ?? [],
+    mode: row.mode,
+    density: Number(row.density),
+    motion: Number(row.motion),
+    intensity: Number(row.intensity),
+    options: row.options ?? {},
+    analysisData: row.analysis_data ?? {},
+    createdAt: row.created_at
+  };
+}
+
+function generateTitle({ title, coreWords, originalText }) {
+  if (title && String(title).trim()) {
+    return String(title).trim().slice(0, 120);
+  }
+
+  const fromCore = (coreWords || [])
+    .slice(0, 5)
+    .map((w) => (typeof w === 'string' ? w : w?.text))
+    .filter(Boolean);
+
+  if (fromCore.length >= 3) {
+    return fromCore.slice(0, Math.min(5, fromCore.length)).join(' · ').slice(0, 120);
+  }
+
+  if (fromCore.length > 0) {
+    return fromCore.join(' · ').slice(0, 120);
+  }
+
+  const words = String(originalText || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 5);
+
+  if (words.length) return words.join(' ').slice(0, 120);
+  return 'untitled echo';
+}
+
+function validateWorkPayload(body) {
+  if (!body || typeof body !== 'object') {
+    throw new ValidationError('Request body is required');
+  }
+
+  const originalText = String(body.originalText || '').trim();
+  if (!originalText) throw new ValidationError('originalText is required');
+
+  const mode = String(body.mode || '').toLowerCase();
+  if (!VALID_MODES.has(mode)) {
+    throw new ValidationError(`mode must be one of: ${[...VALID_MODES].join(', ')}`);
+  }
+
+  const coreWords = Array.isArray(body.coreWords) ? body.coreWords : [];
+  const relatedWords = Array.isArray(body.relatedWords) ? body.relatedWords : [];
+  const particles = Array.isArray(body.particles) ? body.particles : [];
+
+  return {
+    title: generateTitle({ title: body.title, coreWords, originalText }),
+    original_text: originalText,
+    core_words: coreWords,
+    related_words: relatedWords,
+    particles,
+    mode,
+    density: clampUnit(body.density, 0.6),
+    motion: clampUnit(body.motion, 0.4),
+    intensity: clampUnit(body.intensity, 0.4),
+    options: body.options && typeof body.options === 'object' ? body.options : {},
+    analysis_data: body.analysisData && typeof body.analysisData === 'object' ? body.analysisData : {}
+  };
+}
+
+function requireSupabase(res) {
+  if (!isSupabaseConfigured()) {
+    res.status(503).json({
+      error: 'Supabase is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in backend/.env.'
+    });
+    return false;
+  }
+  return true;
+}
+
 async function runAnalysis(text, body = {}) {
   const density = body.density ?? 1;
-  const useDatamuse = config.USE_DATAMUSE || config.NETWORK_DATAMUSE;
+  const useDatamuse = USE_DATAMUSE || NETWORK_DATAMUSE;
   return analyzeText(text, {
     density,
     useDatamuse,
@@ -68,15 +172,12 @@ function requireText(req, res) {
   return text;
 }
 
-// --- Echo API routes (frontend calls these via apiClient.js) ---
-
 app.post('/api/analyze-text', async (req, res) => {
   const text = requireText(req, res);
   if (!text) return;
 
   try {
-    const result = await runAnalysis(text, req.body);
-    res.json(result);
+    res.json(await runAnalysis(text, req.body));
   } catch (err) {
     res.status(500).json({ error: 'Analysis failed', message: err.message });
   }
@@ -142,24 +243,23 @@ app.post('/api/art/orbit', async (req, res) => {
   }
 });
 
-// --- Gallery: saved Echo works (Supabase via service role) ---
-
 app.post('/api/works', async (req, res) => {
   if (!requireSupabase(res)) return;
 
   try {
-    const saved = await createWork(req.body);
-    res.status(201).json(saved);
+    const record = validateWorkPayload(req.body);
+    const { data, error } = await supabase.from('echo_works').insert(record).select().single();
+    if (error) throw error;
+    res.status(201).json(toCamel(data));
   } catch (err) {
     if (err instanceof ValidationError) {
       res.status(400).json({ error: err.message });
       return;
     }
-    console.error('Save work failed:', err);
     const message = String(err.message || '');
     if (message.includes('row-level security')) {
       res.status(500).json({
-        error: 'Supabase rejected the save. Use SUPABASE_SERVICE_ROLE_KEY (service_role secret), not the publishable/anon key, then restart the server.',
+        error: 'Use SUPABASE_SERVICE_ROLE_KEY (service_role), not the anon key.',
         message
       });
       return;
@@ -172,10 +272,13 @@ app.get('/api/works', async (req, res) => {
   if (!requireSupabase(res)) return;
 
   try {
-    const works = await listWorks();
-    res.json(works);
+    const { data, error } = await supabase
+      .from('echo_works')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    res.json((data || []).map(toCamel));
   } catch (err) {
-    console.error('List works failed:', err);
     res.status(500).json({ error: 'Failed to load gallery', message: err.message });
   }
 });
@@ -184,14 +287,18 @@ app.get('/api/works/:id', async (req, res) => {
   if (!requireSupabase(res)) return;
 
   try {
-    const work = await getWorkById(req.params.id);
-    if (!work) {
+    const { data, error } = await supabase
+      .from('echo_works')
+      .select('*')
+      .eq('id', req.params.id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) {
       res.status(404).json({ error: 'Work not found' });
       return;
     }
-    res.json(work);
+    res.json(toCamel(data));
   } catch (err) {
-    console.error('Get work failed:', err);
     res.status(500).json({ error: 'Failed to load work', message: err.message });
   }
 });
@@ -200,28 +307,30 @@ app.delete('/api/works/:id', async (req, res) => {
   if (!requireSupabase(res)) return;
 
   try {
-    const existing = await getWorkById(req.params.id);
-    if (!existing) {
+    const { data, error } = await supabase
+      .from('echo_works')
+      .select('id')
+      .eq('id', req.params.id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) {
       res.status(404).json({ error: 'Work not found' });
       return;
     }
-    const result = await deleteWorkById(req.params.id);
-    res.json(result);
+
+    const { error: deleteError } = await supabase.from('echo_works').delete().eq('id', req.params.id);
+    if (deleteError) throw deleteError;
+    res.json({ id: req.params.id, deleted: true });
   } catch (err) {
-    console.error('Delete work failed:', err);
     res.status(500).json({ error: 'Failed to delete work', message: err.message });
   }
 });
 
-// Serve frontend static files
 app.use(express.static(frontendPath));
 
-app.listen(config.PORT, () => {
-  console.log(`Echo API running at http://localhost:${config.PORT}`);
-  console.log(`Enrichment: ${config.USE_DATAMUSE ? 'Datamuse (all modes)' : config.NETWORK_DATAMUSE ? 'Datamuse (network echoes)' : 'Echo local only'}`);
-  console.log(
-    isSupabaseConfigured()
-      ? 'Gallery: Supabase connected (save/load enabled)'
-      : 'Gallery: DISABLED — set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in backend/.env, then restart'
-  );
+app.listen(PORT, () => {
+  console.log(`Echo running at http://localhost:${PORT}`);
+  if (!isSupabaseConfigured()) {
+    console.log('Gallery disabled — add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to backend/.env');
+  }
 });

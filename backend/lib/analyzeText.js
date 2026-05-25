@@ -1,12 +1,7 @@
-/**
- * Echo text analysis — core API logic (source of truth).
- *
- * Extracts words, counts frequencies, builds co-occurrence links,
- * resolves related words, and assembles particles. This module owns
- * Echo's art-data pipeline; Datamuse is optional enrichment only.
- */
+// Text analysis for Echo — word counts, links, related words, particles.
+// Datamuse is optional; the server passes in fetchExternal when enabled.
 
-const { buildParticles } = require('./generateParticles');
+const { buildParticles } = require('./artData');
 
 const STOPWORDS = new Set([
   'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
@@ -137,6 +132,64 @@ function mergeRelatedWords(localWords, externalWords) {
   return [...byText.values()].sort((a, b) => b.score - a.score).slice(0, 60);
 }
 
+async function fetchDatamuse(url) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Datamuse error: ${response.status}`);
+    return await response.json();
+  } catch {
+    return [];
+  }
+}
+
+// Optional Datamuse enrichment — only called from the server, never the browser.
+async function fetchDatamuseRelatedWords(seedWords) {
+  const seeds = seedWords.slice(0, 6);
+  const related = new Map();
+  const seen = new Set(seedWords.map((w) => (w.text || w).toLowerCase()));
+
+  for (const item of seeds) {
+    const seed = (typeof item === 'string' ? item : item.text).toLowerCase();
+    const encoded = encodeURIComponent(seed);
+
+    const urls = [
+      `https://api.datamuse.com/words?ml=${encoded}&max=8`,
+      `https://api.datamuse.com/words?rel_trg=${encoded}&max=8`,
+      `https://api.datamuse.com/words?rel_syn=${encoded}&max=5`
+    ];
+
+    for (const url of urls) {
+      const data = await fetchDatamuse(url);
+
+      data.forEach((entry) => {
+        const text = entry.word.toLowerCase();
+
+        if (
+          text.includes(' ')
+          || text.includes('-')
+          || text.length < 3
+          || seen.has(text)
+          || STOPWORDS.has(text)
+        ) {
+          return;
+        }
+
+        seen.add(text);
+        related.set(text, {
+          text,
+          score: (entry.score || 0) / 100000,
+          source: seed,
+          type: 'related'
+        });
+      });
+    }
+  }
+
+  return Array.from(related.values())
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 60);
+}
+
 async function resolveRelatedWords(words, text, links, useDatamuse, fetchExternal) {
   const local = generateLocalRelatedWords(words, text, links);
   if (!useDatamuse || !fetchExternal) return local;
@@ -184,5 +237,6 @@ module.exports = {
   extractWords,
   buildCooccurrenceLinks,
   generateLocalRelatedWords,
-  analyzeText
+  analyzeText,
+  fetchDatamuseRelatedWords
 };
