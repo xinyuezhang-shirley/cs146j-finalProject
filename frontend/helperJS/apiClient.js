@@ -82,6 +82,23 @@ export async function fetchWork(id) {
   return response.json();
 }
 
+export async function updateWork(id, patch) {
+  let response;
+
+  try {
+    response = await fetch(apiUrl(`/api/works/${encodeURIComponent(id)}`), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch)
+    });
+  } catch {
+    throw new Error('Open http://localhost:3000 and run npm run dev.');
+  }
+
+  if (!response.ok) throw await parseApiError(response, 'Failed to update work');
+  return response.json();
+}
+
 export async function deleteWork(id) {
   const response = await fetch(apiUrl(`/api/works/${encodeURIComponent(id)}`), {
     method: 'DELETE'
