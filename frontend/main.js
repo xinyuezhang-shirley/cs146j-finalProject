@@ -51,8 +51,9 @@ const fieldSummary = document.getElementById('field-summary');
 const saveBtn = document.getElementById('save-btn');
 const saveStatus = document.getElementById('save-status');
 
-// core functions
+// Screen-managing functions
 
+//directly jumps to sections needed
 function scrollToSection(id) {
   const section = document.getElementById(id);
   if (!section) {
@@ -61,15 +62,11 @@ function scrollToSection(id) {
   section.scrollIntoView({ behavior: 'smooth' });
 }
 
+//adds a transparent background for the nav bar if scrolled down
 function updateNavOnScroll() {
   siteNav.classList.toggle('is-scrolled', window.scrollY > 40);
 }
 
-function updateControlLabels() {
-  intensityValue.textContent = String(state.intensity);
-  densityValue.textContent = String(state.density);
-  motionValue.textContent = String(state.motion);
-}
 
 function syncStudioModeButtons() {
   studioModeBtns.forEach(function (btn) {
@@ -103,31 +100,6 @@ function setTheme(theme) {
   }
 }
 
-// update the graph when sliders move
-function applyLiveControls() {
-  updateControlLabels();
-  if (!state.analysis) {
-    return;
-  }
-
-  const opts = {
-    intensity: state.intensity / 100,
-    density: state.density / 100,
-    motion: state.motion / 100,
-    paused: state.paused
-  };
-
-  updateFieldSummary(state.analysis);
-
-  if (state.renderer && state.renderer.updateOptions) {
-    state.renderer.updateOptions(opts);
-    if (state.mode === 'soup' || state.mode === 'vortex' || state.mode === 'ascii') {
-      return;
-    }
-  }
-
-  renderCurrentMode();
-}
 
 function updateCharCounter() {
   const len = passageInput.value.length;
@@ -152,6 +124,40 @@ function setLoading(loading) {
   if (loading) {
     transformStatus.textContent = 'Transforming your passage…';
   }
+}
+
+//--------------------------------------------------------
+//update slide bar value
+function updateControlLabels() {
+  intensityValue.textContent = String(state.intensity);
+  densityValue.textContent = String(state.density);
+  motionValue.textContent = String(state.motion);
+}
+
+// update the graph when sliders move
+function applyLiveControls() {
+  updateControlLabels();
+  if (!state.analysis) {
+    return;
+  }
+
+  const opts = {
+    intensity: state.intensity / 100,
+    density: state.density / 100,
+    motion: state.motion / 100,
+    paused: state.paused
+  };
+
+  updateFieldSummary(state.analysis);
+
+  if (state.renderer && state.renderer.updateOptions) {
+    state.renderer.updateOptions(opts);
+    if (state.mode === 'soup' || state.mode === 'vortex' || state.mode === 'ascii') {
+      return;
+    }
+  }
+
+  renderCurrentMode();
 }
 
 function updateFieldSummary(analysis) {
