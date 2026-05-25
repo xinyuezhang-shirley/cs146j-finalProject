@@ -1,25 +1,10 @@
-/* ==========================================================================
-   ECHO — Global theme system (night default, paper via body.paper)
-   ========================================================================== */
-
 :root {
-  --bg: #000000;
+  --bg: #000;
   --text: #f5f5f5;
   --muted: #8a8a8a;
-  --border: rgba(255, 255, 255, 0.18);
+  --line: rgba(255, 255, 255, 0.18);
   --panel: rgba(255, 255, 255, 0.05);
 
-  /* Visualization tokens (derived per theme) */
-  --viz-link: rgba(255, 255, 255, 0.12);
-  --viz-link-active: rgba(255, 255, 255, 0.4);
-  --viz-node-stroke: rgba(255, 255, 255, 0.28);
-  --viz-node-stroke-active: rgba(255, 255, 255, 0.85);
-  --viz-core: rgba(245, 245, 245, 0.9);
-  --viz-related: rgba(170, 170, 170, 0.35);
-  --viz-trail: rgba(255, 255, 255, 0.1);
-
-  --accent: rgba(160, 216, 239, 0.6);
-  --paper-texture: none;
   --serif: "Cormorant Garamond", "Times New Roman", serif;
   --mono: "IBM Plex Mono", "Courier New", monospace;
   --nav-height: 56px;
@@ -27,29 +12,13 @@
 
 body.paper {
   --bg: #f7f6f3;
-  --text: #1a1a1a;
-  --muted: #6b6b6b;
-  --border: rgba(0, 0, 0, 0.12);
+  --text: #111;
+  --muted: #777;
+  --line: rgba(0, 0, 0, 0.16);
   --panel: rgba(0, 0, 0, 0.04);
-
-  --viz-link: rgba(0, 0, 0, 0.1);
-  --viz-link-active: rgba(0, 0, 0, 0.35);
-  --viz-node-stroke: rgba(0, 0, 0, 0.2);
-  --viz-node-stroke-active: rgba(0, 0, 0, 0.75);
-  --viz-core: rgba(26, 26, 26, 0.88);
-  --viz-related: rgba(140, 140, 140, 0.4);
-  --viz-trail: rgba(0, 0, 0, 0.08);
-
-  --accent: rgba(0, 0, 0, 0.45);
-  --paper-texture:
-    radial-gradient(circle at 18% 22%, rgba(0, 0, 0, 0.018) 0%, transparent 48%),
-    radial-gradient(circle at 82% 78%, rgba(0, 0, 0, 0.022) 0%, transparent 42%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0%, transparent 30%);
 }
 
-/* ==========================================================================
-   Reset & base
-   ========================================================================== */
+/* base */
 
 *,
 *::before,
@@ -67,7 +36,6 @@ html {
 body {
   font-family: var(--mono);
   background-color: var(--bg);
-  background-image: var(--paper-texture);
   color: var(--text);
   line-height: 1.5;
   overflow-x: hidden;
@@ -140,9 +108,7 @@ input:focus-visible {
   border: 0;
 }
 
-/* ==========================================================================
-   Navigation
-   ========================================================================== */
+/* nav */
 
 .site-header {
   position: relative;
@@ -217,18 +183,15 @@ input:focus-visible {
 }
 
 
-/* ==========================================================================
-   Sections
-   ========================================================================== */
+/* sections */
 
 .section {
   position: relative;
   background-color: var(--bg);
-  background-image: var(--paper-texture);
   color: var(--text);
 }
 
-/* Hero */
+/* hero */
 
 .section--hero {
   min-height: 78vh;
@@ -322,7 +285,7 @@ input:focus-visible {
   50% { transform: translateY(6px); }
 }
 
-/* Compose */
+/* compose */
 
 .section--compose {
   display: flex;
@@ -455,7 +418,7 @@ body.paper .form-status[data-status="error"] {
   position: absolute;
   width: 24px;
   height: 24px;
-  border-color: var(--border);
+  border-color: var(--line);
   border-style: solid;
 }
 
@@ -481,7 +444,7 @@ body.paper .form-status[data-status="error"] {
 .compose-frame__footer {
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--line);
 }
 
 .compose-input {
@@ -552,7 +515,7 @@ body.paper .form-status[data-status="error"] {
   display: flex;
   position: relative;
   z-index: 1;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
 }
 
 .control-toggle__option {
@@ -572,7 +535,7 @@ body.paper .form-status[data-status="error"] {
 }
 
 .control-toggle__option + .control-toggle__option {
-  border-left: 1px solid var(--border);
+  border-left: 1px solid var(--line);
 }
 
 .control-toggle__option.is-active {
@@ -587,7 +550,7 @@ body.paper .form-status[data-status="error"] {
   font-size: 0.55rem;
   letter-spacing: 0.1em;
   background: transparent;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   appearance: none;
   cursor: pointer;
 }
@@ -602,13 +565,13 @@ body.paper .form-status[data-status="error"] {
   padding: 0.35rem 0.75rem;
   font-size: 0.55rem;
   letter-spacing: 0.12em;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   transition: border-color 0.2s, color 0.2s;
 }
 
 .control-btn[aria-pressed="true"] {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--text);
+  color: var(--text);
 }
 
 .transform-btn {
@@ -617,7 +580,7 @@ body.paper .form-status[data-status="error"] {
   font-size: 0.65rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   transition: background 0.2s, color 0.2s;
 }
 
@@ -636,9 +599,7 @@ body.paper .form-status[data-status="error"] {
   color: var(--muted);
 }
 
-/* ==========================================================================
-   Studio
-   ========================================================================== */
+/* studio */
 
 .section--studio {
   padding-top: calc(var(--nav-height) + 1rem);
@@ -697,14 +658,14 @@ body.paper .form-status[data-status="error"] {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   padding: 0.55rem 0.85rem;
   min-height: 44px;
   transition: opacity 0.2s, border-color 0.2s;
 }
 
 .studio-save-btn:hover:not(:disabled) {
-  border-color: var(--border-strong);
+  border-color: var(--text);
 }
 
 .studio-save-btn:disabled {
@@ -745,7 +706,7 @@ body.paper .form-status[data-status="error"] {
   overflow: hidden;
   overscroll-behavior: contain;
   background: var(--panel);
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
 }
 
 .studio-canvas {
@@ -771,12 +732,7 @@ body.paper .form-status[data-status="error"] {
   letter-spacing: 0.05em;
   color: var(--muted);
   text-transform: lowercase;
-  visibility: hidden;
   pointer-events: none;
-}
-
-body.in-studio .studio-hint {
-  visibility: visible;
 }
 
 .studio-side-nav {
@@ -788,24 +744,17 @@ body.in-studio .studio-hint {
   height: 36px;
   border-radius: 50%;
   background: var(--panel);
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   color: var(--muted);
   font-size: 1.2rem;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: background 0.2s, color 0.2s;
-  visibility: hidden;
-  pointer-events: none;
-}
-
-body.in-studio .studio-side-nav {
-  visibility: visible;
-  pointer-events: auto;
 }
 
 .studio-side-nav:hover {
-  background: var(--border);
+  background: var(--line);
   color: var(--text);
 }
 
@@ -829,7 +778,7 @@ body.in-studio .studio-side-nav {
   background: var(--panel);
 }
 
-/* Network visualization — colors from theme tokens */
+/* visualizations */
 
 .network-empty {
   font-family: var(--serif);
@@ -840,12 +789,12 @@ body.in-studio .studio-side-nav {
 }
 
 .network-link {
-  stroke: var(--viz-link);
+  stroke: var(--line);
   transition: stroke 0.2s ease, opacity 0.2s ease;
 }
 
 .network-link.is-active {
-  stroke: var(--viz-link-active);
+  stroke: var(--text);
 }
 
 .network-link.is-dimmed {
@@ -868,13 +817,13 @@ body.in-studio .studio-side-nav {
 
 .network-node circle.node-circle {
   fill: none;
-  stroke: var(--viz-node-stroke);
+  stroke: var(--line);
   stroke-width: 0.75px;
   transition: stroke 0.2s ease;
 }
 
 .network-node.is-active circle {
-  stroke: var(--viz-node-stroke-active);
+  stroke: var(--text);
   stroke-width: 1.25px;
 }
 
@@ -919,9 +868,7 @@ body.in-studio .studio-side-nav {
   color: var(--muted);
 }
 
-/* ==========================================================================
-   Secondary pages — Gallery & About
-   ========================================================================== */
+/* gallery + about pages */
 
 .page {
   min-height: calc(100vh - var(--nav-height));
@@ -966,7 +913,7 @@ body.in-studio .studio-side-nav {
 .gallery-notice {
   padding: 1rem 1.25rem;
   margin-bottom: 2rem;
-  border: 1px dashed var(--border);
+  border: 1px dashed var(--line);
   background: var(--panel);
   font-size: 0.75rem;
   line-height: 1.6;
@@ -1000,7 +947,7 @@ body.in-studio .studio-side-nav {
   flex-direction: column;
   gap: 0.75rem;
   padding: 1.25rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   background: var(--panel);
   cursor: pointer;
   transition: border-color 0.2s, background 0.2s;
@@ -1009,7 +956,7 @@ body.in-studio .studio-side-nav {
 
 .gallery-card:hover,
 .gallery-card:focus-visible {
-  border-color: var(--border-strong);
+  border-color: var(--text);
   outline: none;
 }
 
@@ -1092,7 +1039,7 @@ body.in-studio .studio-side-nav {
   min-height: 38vh;
   max-height: 46vh;
   background: var(--bg);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--line);
   display: grid;
   grid-template-columns: minmax(220px, 320px) 1fr;
   gap: 1rem;
@@ -1129,7 +1076,7 @@ body.in-studio .studio-side-nav {
 .gallery-preview__stage {
   position: relative;
   min-height: 32vh;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   background: var(--panel);
   overflow: hidden;
 }
@@ -1182,7 +1129,7 @@ body.in-studio .studio-side-nav {
   font-size: 0.65rem;
   letter-spacing: 0.15em;
   text-transform: uppercase;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   padding: 0.75rem 1.25rem;
   min-height: 44px;
   display: inline-flex;
@@ -1195,7 +1142,7 @@ body.in-studio .studio-side-nav {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--line);
 }
 
 .site-footer a {
@@ -1207,9 +1154,7 @@ body.in-studio .studio-side-nav {
   text-align: center;
 }
 
-/* ==========================================================================
-   Responsive
-   ========================================================================== */
+/* Responsive Design */
 
 @media (max-width: 900px) {
   .gallery-grid {

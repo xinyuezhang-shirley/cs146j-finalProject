@@ -364,20 +364,6 @@ body.about-page .site-nav__link:hover {
   color: var(--about-muted);
 }
 
-/* ── Scroll reveal ── */
-[data-reveal] {
-  opacity: 0;
-  transform: translateY(0.75rem);
-  transition:
-    opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-[data-reveal].is-visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
 /* ── Tablet: 55 / 45 stage split ── */
 @media (min-width: 640px) {
   .about-stage {
@@ -526,12 +512,6 @@ body.about-page .site-nav__link:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-reveal] {
-    opacity: 1;
-    transform: none;
-    transition: none;
-  }
-
   .about-atmosphere__image {
     transform: none !important;
   }

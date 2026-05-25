@@ -1,15 +1,6 @@
-/**
- * Gallery page — fetch saved works from Supabase via Echo API.
- */
-
-import { initPageTheme } from './helperJS/pageInit.js';
+import { applyTheme, initTheme } from './helperJS/theme.js';
 import { fetchWorks, deleteWork } from './helperJS/apiClient.js';
-import {
-  renderEchoMode,
-  destroyEchoMode,
-  normalizeWorkData,
-  workToRenderOptions
-} from './helperJS/renderMode.js';
+import { renderEchoMode, destroyEchoMode, clamp01 } from './helperJS/controls.js';
 
 const notice = document.getElementById('gallery-notice');
 const grid = document.getElementById('gallery-grid');
@@ -23,7 +14,7 @@ let works = [];
 let selectedId = null;
 let previewRenderer = null;
 
-initPageTheme();
+applyTheme(initTheme());
 loadGallery();
 
 async function loadGallery() {
@@ -48,7 +39,6 @@ async function loadGallery() {
       clearPreview('Select a saved Echo piece to preview it.');
     }
   } catch (error) {
-    console.error('Gallery load failed:', error);
     setNotice(error.message || 'Failed to load gallery.', 'error');
     renderGrid([]);
     clearPreview('Preview unavailable.');
@@ -143,7 +133,7 @@ function renderGrid(items) {
   });
 }
 
-async function selectWork(id, { scroll = true } = {}) {
+function selectWork(id, { scroll = true } = {}) {
   const work = works.find((item) => item.id === id);
   if (!work) return;
 
@@ -159,16 +149,36 @@ async function selectWork(id, { scroll = true } = {}) {
   }
 
   try {
-    previewRenderer = await renderEchoMode({
+    const saved = work.analysisData && typeof work.analysisData === 'object' ? work.analysisData : {};
+    const extra = work.options && typeof work.options === 'object' ? work.options : {};
+
+    const previewData = {
+      text: work.originalText || saved.text || '',
+      words: work.coreWords && work.coreWords.length ? work.coreWords : (saved.words || []),
+      relatedWords: work.relatedWords && work.relatedWords.length ? work.relatedWords : (saved.relatedWords || []),
+      particles: work.particles && work.particles.length ? work.particles : (saved.particles || []),
+      links: saved.links || [],
+      nodes: saved.nodes || [],
+      frequency: saved.frequency || {},
+      meta: saved.meta || {}
+    };
+
+    const previewOptions = {
+      density: clamp01(Number(work.density != null ? work.density : extra.density) || 0.6),
+      motion: clamp01(Number(work.motion != null ? work.motion : extra.motion) || 0.4),
+      intensity: clamp01(Number(work.intensity != null ? work.intensity : extra.intensity) || 0.4),
+      paused: Boolean(extra.paused)
+    };
+
+    previewRenderer = renderEchoMode({
       container: previewCanvas,
       asciiEl: previewAscii,
       mode: work.mode,
-      data: normalizeWorkData(work),
-      options: workToRenderOptions(work),
+      data: previewData,
+      options: previewOptions,
       renderer: previewRenderer
     });
-  } catch (error) {
-    console.error('Preview render failed:', error);
+  } catch {
     setNotice('Could not render preview for this piece.', 'error');
   }
 
@@ -213,7 +223,6 @@ async function handleDelete(id) {
     setNotice(`${works.length} saved piece${works.length === 1 ? '' : 's'} in the archive.`);
     renderGrid(works);
   } catch (error) {
-    console.error('Delete failed:', error);
     setNotice(error.message || 'Failed to delete work.', 'error');
   }
 }

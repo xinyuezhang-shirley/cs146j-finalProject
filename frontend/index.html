@@ -26,7 +26,7 @@
 
   <main id="main">
 
-    <!-- Hero -->
+    <!-- Title- Hero Lettering -->
     <section id="hero" class="section section--hero" aria-labelledby="echo-title">
 
       <p class="hero__meta">ECHO, A COMPUTATIONAL TEXT ART STUDIO</p>
@@ -44,11 +44,11 @@
       </a>
     </section>
 
-    <!-- Compose -->
+    <!-- compose and adjustment section -->
     <section id="compose" class="section section--compose" aria-labelledby="compose-heading">
       <h2 id="compose-heading" class="visually-hidden">Compose your passage</h2>
 
-      <form id="compose-form" class="compose-form" method="post" action="/api/analyze-text" novalidate>
+      <form id="compose-form" class="compose-form" novalidate>
         <div class="compose-frame">
           <div class="compose-frame__bracket compose-frame__bracket--tl" aria-hidden="true"></div>
           <div class="compose-frame__bracket compose-frame__bracket--tr" aria-hidden="true"></div>
@@ -56,7 +56,7 @@
           <div class="compose-frame__bracket compose-frame__bracket--br" aria-hidden="true"></div>
 
           <div class="compose-frame__header">
-            <span>02 / COMPOSE</span>
+            <span>COMPOSE</span>
             <span>“Words have no single fixed meaning.” — Jorge Luis Borges</span>
           </div>
 
@@ -68,7 +68,7 @@
             maxlength="1200"
             rows="8"
             required
-            placeholder="leave a sentence here&#10;and watch what remains of it."
+            placeholder="Leave your words here, and let them breathe on their own."
             aria-describedby="char-counter compose-error"
           ></textarea>
 
@@ -76,7 +76,7 @@
           <p id="transform-status" class="form-status" aria-live="polite"></p>
 
           <div class="compose-frame__footer">
-            <button type="button" class="text-btn" id="sample-btn">Try a sample</button>
+            <button type="button" class="text-btn" id="sample-btn">Try a sample text</button>
             <span class="char-counter" id="char-counter" aria-live="polite">0000 / 1200</span>
           </div>
         </div>
@@ -122,7 +122,7 @@
       </div>
     </section>
 
-    <!-- Studio -->
+    <!-- Studio Canvas section -->
     <section id="studio" class="section section--studio" aria-labelledby="studio-heading">
       <h2 id="studio-heading" class="visually-hidden">Visualization studio</h2>
 

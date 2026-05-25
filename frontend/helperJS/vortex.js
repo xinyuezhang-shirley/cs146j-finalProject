@@ -1,16 +1,7 @@
-/**
- * Vortex — spiral word field with live controls, drag rotation, and zoom.
- *
- * density   → particle count (sparse → immersive field)
- * motion    → swirl speed
- * intensity → spiral spacing, wobble, depth, turbulence
- *
- * Double-click canvas to reset zoom/rotation.
- */
+// Vortex + orbit — spiral and ring layouts.
 
 import { getThemeColors, withAlpha } from './theme.js';
-import { clamp01 } from './controls.js';
-import { measureContainer, syncCanvasToContainer, getStudioWrap } from './canvasSize.js';
+import { clamp01, getContainerSize, fitCanvas } from './controls.js';
 
 const DENSITY_MIN = 8;
 const DENSITY_MAX = 120;
@@ -23,30 +14,49 @@ function targetParticleCount(density) {
   return Math.round(DENSITY_MIN + clamp01(density) * (DENSITY_MAX - DENSITY_MIN));
 }
 
+// get word templates from the analysis data
 function buildSourcePool(data) {
-  if (data.particles?.length) return [...data.particles];
+  if (data.particles && data.particles.length) {
+    return data.particles.slice();
+  }
 
-  const fromWords = (data.words || []).map((w) => ({
-    text: w.text,
-    type: 'core',
-    frequency: w.frequency || 1,
-    size: 0.7 + Math.min(w.frequency || 1, 5) * 0.25,
-    opacity: 0.65 + Math.min(w.frequency || 1, 5) * 0.07,
-    semanticScore: Math.min(1, (w.frequency || 1) / 5)
-  }));
+  const fromWords = [];
+  const words = data.words || [];
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    fromWords.push({
+      text: w.text,
+      type: 'core',
+      frequency: w.frequency || 1,
+      size: 0.7 + Math.min(w.frequency || 1, 5) * 0.25,
+      opacity: 0.65 + Math.min(w.frequency || 1, 5) * 0.07,
+      semanticScore: Math.min(1, (w.frequency || 1) / 5)
+    });
+  }
 
-  return fromWords.length
-    ? fromWords
-    : [{ text: 'silence', type: 'core', frequency: 1, size: 1, opacity: 0.8, semanticScore: 1 }];
+  if (fromWords.length) {
+    return fromWords;
+  }
+  return [{ text: 'silence', type: 'core', frequency: 1, size: 1, opacity: 0.8, semanticScore: 1 }];
 }
 
+// turn slider values into spiral settings
 function getVortexParams(options) {
-  const motion = clamp01(options.motion ?? 0.4);
-  const intensity = clamp01(options.intensity ?? 0.4);
+  let motion = options.motion;
+  if (motion === undefined) {
+    motion = 0.4;
+  }
+  motion = clamp01(motion);
+
+  let intensity = options.intensity;
+  if (intensity === undefined) {
+    intensity = 0.4;
+  }
+  intensity = clamp01(intensity);
 
   return {
-    motion,
-    intensity,
+    motion: motion,
+    intensity: intensity,
     motionScale: 2 + motion * 18,
     wobbleAmount: 3 + intensity * 28,
     wobbleRate: 0.006 + intensity * 0.022,
@@ -58,33 +68,31 @@ function getVortexParams(options) {
   };
 }
 
+// place one word on the spiral
 function createVortexParticle(template, index, params) {
   const isCore = template.type === 'core';
   const importance = template.frequency || template.size || 1;
-  const semanticScore = isCore
-    ? Math.min(1, template.semanticScore ?? importance / 5)
-    : Math.min(1, template.semanticScore ?? 0.35);
+  let semanticScore;
+  if (isCore) {
+    semanticScore = Math.min(1, template.semanticScore !== undefined ? template.semanticScore : importance / 5);
+  } else {
+    semanticScore = Math.min(1, template.semanticScore !== undefined ? template.semanticScore : 0.35);
+  }
 
   const spiralStep = params.spiralSpacing + params.intensity * 3;
 
   return {
     text: template.text,
     type: isCore ? 'core' : 'related',
-    semanticScore,
-    importance,
+    semanticScore: semanticScore,
+    importance: importance,
     angle: index * 0.42,
-    radius:
-      18 +
-      index * spiralStep +
-      (1 - semanticScore) * params.outerSpread,
+    radius: 18 + index * spiralStep + (1 - semanticScore) * params.outerSpread,
     z: Math.sin(index * 0.7) * params.intensity * 120,
     size: isCore
       ? Math.min(34, 16 + importance * 8)
       : Math.min(22, 12 + semanticScore * 10),
-    speed:
-      0.0015 +
-      (1 - semanticScore) * 0.002 +
-      Math.random() * 0.001,
+    speed: 0.0015 + (1 - semanticScore) * 0.002 + Math.random() * 0.001,
     opacity: isCore ? 0.94 : 0.28 + semanticScore * 0.42,
     wobbleSeed: Math.random() * Math.PI * 2
   };
@@ -99,36 +107,53 @@ function buildVortexParticles(sourcePool, count, params) {
 }
 
 function resizeParticleField(particles, count, sourcePool, params) {
-  if (particles.length === count) return particles;
-  if (particles.length > count) return particles.slice(0, count);
+  if (particles.length === count) {
+    return particles;
+  }
+  if (particles.length > count) {
+    return particles.slice(0, count);
+  }
 
-  const next = [...particles];
+  const next = particles.slice();
   while (next.length < count) {
     next.push(createVortexParticle(sourcePool[next.length % sourcePool.length], next.length, params));
   }
   return next;
 }
 
+// recalculate spiral positions when sliders change
 function rebuildParticleLayout(particles, sourcePool, params) {
-  return particles.map((p, i) => {
+  const next = [];
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
     const template = sourcePool[i % sourcePool.length];
     const fresh = createVortexParticle(template, i, params);
-    return { ...fresh, text: p.text, type: p.type };
-  });
+    fresh.text = p.text;
+    fresh.type = p.type;
+    next.push(fresh);
+  }
+  return next;
 }
 
-export function renderVortex(container, data, options = {}) {
+export function renderVortex(container, data, options) {
+  if (!options) {
+    options = {};
+  }
+
   destroyVortex(container);
 
+  // setup
   const sourcePool = buildSourcePool(data);
   let simOptions = {
-    density: clamp01(options.density ?? 0.6),
-    motion: clamp01(options.motion ?? 0.4),
-    intensity: clamp01(options.intensity ?? 0.4),
-    paused: options.paused ?? false
+    density: clamp01(options.density !== undefined ? options.density : 0.6),
+    motion: clamp01(options.motion !== undefined ? options.motion : 0.4),
+    intensity: clamp01(options.intensity !== undefined ? options.intensity : 0.4),
+    paused: options.paused ? options.paused : false
   };
 
-  let { width, height } = measureContainer(container);
+  let size = getContainerSize(container);
+  let width = size.width;
+  let height = size.height;
   let params = getVortexParams(simOptions);
   let fitScale = Math.min(width, height) / 520;
   let particles = buildVortexParticles(
@@ -142,10 +167,12 @@ export function renderVortex(container, data, options = {}) {
   canvas.style.cursor = 'grab';
   container.appendChild(canvas);
 
-  const wheelSurface = getStudioWrap(container) || canvas;
-
+  const wheelSurface = container.closest('.studio-canvas-wrap') || canvas;
   const ctx = canvas.getContext('2d');
-  ({ width, height } = syncCanvasToContainer(canvas, ctx, container));
+
+  size = fitCanvas(canvas, ctx, container);
+  width = size.width;
+  height = size.height;
   fitScale = Math.min(width, height) / 520;
 
   let animationId = null;
@@ -184,9 +211,9 @@ export function renderVortex(container, data, options = {}) {
   }
 
   function updateView() {
-    view.scale += (view.targetScale - view.scale) * ZOOM_SMOOTH;
-    view.offsetX += (view.targetOffsetX - view.offsetX) * ZOOM_SMOOTH;
-    view.offsetY += (view.targetOffsetY - view.offsetY) * ZOOM_SMOOTH;
+    view.scale = view.scale + (view.targetScale - view.scale) * ZOOM_SMOOTH;
+    view.offsetX = view.offsetX + (view.targetOffsetX - view.offsetX) * ZOOM_SMOOTH;
+    view.offsetY = view.offsetY + (view.targetOffsetY - view.offsetY) * ZOOM_SMOOTH;
   }
 
   function resetView() {
@@ -200,7 +227,9 @@ export function renderVortex(container, data, options = {}) {
   function zoomAtScreenPoint(sx, sy, deltaY) {
     const factor = Math.exp(-deltaY * ZOOM_WHEEL_SENSITIVITY);
     const nextScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, view.targetScale * factor));
-    if (nextScale === view.targetScale) return;
+    if (nextScale === view.targetScale) {
+      return;
+    }
 
     const cx = width / 2;
     const cy = height / 2;
@@ -212,6 +241,7 @@ export function renderVortex(container, data, options = {}) {
     view.targetOffsetY = sy - cy - worldY * nextScale;
   }
 
+  // drawing
   function draw() {
     const theme = getThemeColors();
     ctx.clearRect(0, 0, width, height);
@@ -230,7 +260,8 @@ export function renderVortex(container, data, options = {}) {
     ctx.fillStyle = withAlpha(theme.muted, 0.45);
     ctx.fill();
 
-    particles.forEach((p, i) => {
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
       const a = p.angle + time * p.speed * params.motionScale * params.vortexSpeed * 0.001;
       const spiral =
         p.radius +
@@ -243,31 +274,36 @@ export function renderVortex(container, data, options = {}) {
       ctx.beginPath();
       ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
       ctx.fillStyle = withAlpha(
-        p.type === 'core' ? theme.vizCore : theme.vizRelated,
+        p.type === 'core' ? theme.text : theme.muted,
         p.opacity * (p.type === 'core' ? 0.85 : 0.55)
       );
       ctx.fill();
 
-      ctx.font = `${p.type === 'core' ? 500 : 400} ${p.size}px "Cormorant Garamond", serif`;
+      const weight = p.type === 'core' ? 500 : 400;
+      ctx.font = weight + ' ' + p.size + 'px "Cormorant Garamond", serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = withAlpha(
-        p.type === 'core' ? theme.vizCore : theme.vizRelated,
+        p.type === 'core' ? theme.text : theme.muted,
         p.opacity * (p.type === 'core' ? 1 : 0.72)
       );
       ctx.fillText(p.text, x, y - 8);
-    });
+    }
 
     ctx.restore();
   }
 
+  // animation loop
   function loop() {
     updateView();
-    if (!simOptions.paused) time += 1;
+    if (!simOptions.paused) {
+      time = time + 1;
+    }
     draw();
     animationId = requestAnimationFrame(loop);
   }
 
+  // pointer interaction — drag to spin the vortex
   function onPointerDown(event) {
     canvas.setPointerCapture(event.pointerId);
     drag.active = true;
@@ -277,10 +313,12 @@ export function renderVortex(container, data, options = {}) {
   }
 
   function onPointerMove(event) {
-    if (!drag.active) return;
+    if (!drag.active) {
+      return;
+    }
     const dx = event.clientX - drag.lastX;
     const dy = event.clientY - drag.lastY;
-    view.rotation += dx * 0.005;
+    view.rotation = view.rotation + dx * 0.005;
     view.tilt = Math.max(-1, Math.min(1, view.tilt + dy * 0.003));
     drag.lastX = event.clientX;
     drag.lastY = event.clientY;
@@ -305,8 +343,11 @@ export function renderVortex(container, data, options = {}) {
     resetView();
   }
 
+  // resize
   function onResize() {
-    ({ width, height } = syncCanvasToContainer(canvas, ctx, container));
+    size = fitCanvas(canvas, ctx, container);
+    width = size.width;
+    height = size.height;
     fitScale = Math.min(width, height) / 520;
     syncLayoutFromControls();
   }
@@ -324,14 +365,25 @@ export function renderVortex(container, data, options = {}) {
   loop();
 
   const api = {
-    updateOptions(newOptions = {}) {
+    updateOptions: function (newOptions) {
+      if (!newOptions) {
+        newOptions = {};
+      }
       const prevDensity = simOptions.density;
       const prevIntensity = simOptions.intensity;
 
-      if (newOptions.density !== undefined) simOptions.density = clamp01(newOptions.density);
-      if (newOptions.motion !== undefined) simOptions.motion = clamp01(newOptions.motion);
-      if (newOptions.intensity !== undefined) simOptions.intensity = clamp01(newOptions.intensity);
-      if (newOptions.paused !== undefined) simOptions.paused = newOptions.paused;
+      if (newOptions.density !== undefined) {
+        simOptions.density = clamp01(newOptions.density);
+      }
+      if (newOptions.motion !== undefined) {
+        simOptions.motion = clamp01(newOptions.motion);
+      }
+      if (newOptions.intensity !== undefined) {
+        simOptions.intensity = clamp01(newOptions.intensity);
+      }
+      if (newOptions.paused !== undefined) {
+        simOptions.paused = newOptions.paused;
+      }
 
       syncParams();
 
@@ -341,18 +393,23 @@ export function renderVortex(container, data, options = {}) {
         syncLayoutFromControls();
       }
     },
-    pause: () => {
+    pause: function () {
       simOptions.paused = true;
     },
-    resume: () => {
+    resume: function () {
       simOptions.paused = false;
     },
-    destroy: () => destroyVortex(container)
+    destroy: function () {
+      destroyVortex(container);
+    }
   };
 
+  // cleanup
   container._vortexInstance = {
-    cleanup: () => {
-      if (animationId) cancelAnimationFrame(animationId);
+    cleanup: function () {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
       animationId = null;
       resizeObserver.disconnect();
       canvas.removeEventListener('pointerdown', onPointerDown);
@@ -367,9 +424,7 @@ export function renderVortex(container, data, options = {}) {
   return api;
 }
 
-/**
- * Orbit — concentric ring layout centered in the visualization box.
- */
+// place words on concentric rings for orbit mode
 function buildOrbitItems(sourcePool, count, motion, intensity, width, height) {
   const padding = 28;
   const maxRadius = Math.max(36, Math.min(width, height) * 0.38 - padding);
@@ -385,32 +440,46 @@ function buildOrbitItems(sourcePool, count, motion, intensity, width, height) {
     const baseRadius = maxRadius * (0.32 + t * 0.68);
 
     items.push({
-      ...p,
+      text: p.text,
+      type: p.type,
+      size: p.size,
+      opacity: p.opacity,
+      semanticScore: p.semanticScore,
       angle: (i / count) * Math.PI * 2,
-      baseRadius,
+      baseRadius: baseRadius,
       radius: baseRadius,
       speed: baseSpeed + (p.semanticScore || 0.3) * baseSpeed * 0.8,
-      wobbleAmp
+      wobbleAmp: wobbleAmp
     });
   }
 
   return items;
 }
 
-export function renderOrbit(container, data, options = {}) {
+export function renderOrbit(container, data, options) {
+  if (!options) {
+    options = {};
+  }
+
   destroyVortex(container);
 
-  const density = clamp01(options.density ?? 0.6);
-  const motion = clamp01(options.motion ?? 0.4);
-  const intensity = clamp01(options.intensity ?? 0.4);
-  let paused = options.paused ?? false;
+  // setup
+  const density = clamp01(options.density !== undefined ? options.density : 0.6);
+  const motion = clamp01(options.motion !== undefined ? options.motion : 0.4);
+  const intensity = clamp01(options.intensity !== undefined ? options.intensity : 0.4);
+  let paused = options.paused ? options.paused : false;
 
-  let { width, height } = measureContainer(container);
+  let size = getContainerSize(container);
+  let width = size.width;
+  let height = size.height;
 
   const canvas = document.createElement('canvas');
   container.appendChild(canvas);
   const ctx = canvas.getContext('2d');
-  ({ width, height } = syncCanvasToContainer(canvas, ctx, container));
+
+  size = fitCanvas(canvas, ctx, container);
+  width = size.width;
+  height = size.height;
 
   const sourcePool = buildSourcePool(data);
   const count = targetParticleCount(density);
@@ -419,6 +488,7 @@ export function renderOrbit(container, data, options = {}) {
   let animationId = null;
   let resizeObserver = null;
 
+  // drawing
   function draw() {
     const theme = getThemeColors();
     ctx.clearRect(0, 0, width, height);
@@ -429,37 +499,47 @@ export function renderOrbit(container, data, options = {}) {
     ctx.save();
     ctx.translate(cx, cy);
 
-    items.forEach((p) => {
+    for (let i = 0; i < items.length; i++) {
+      const p = items[i];
       const x = Math.cos(p.angle) * p.radius;
       const y = Math.sin(p.angle) * p.radius;
-      ctx.font = `${p.type === 'core' ? 500 : 400} ${11 + p.size * 8}px "Cormorant Garamond", serif`;
+      const weight = p.type === 'core' ? 500 : 400;
+      ctx.font = weight + ' ' + (11 + p.size * 8) + 'px "Cormorant Garamond", serif';
       ctx.fillStyle = withAlpha(
-        p.type === 'core' ? theme.vizCore : theme.vizRelated,
+        p.type === 'core' ? theme.text : theme.muted,
         p.opacity * (p.type === 'core' ? 1 : 0.6)
       );
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(p.text, x, y);
-    });
+    }
 
     ctx.restore();
   }
 
+  // physics — slow orbit with a little wobble
   function update() {
-    items.forEach((p) => {
-      p.angle += p.speed;
+    for (let i = 0; i < items.length; i++) {
+      const p = items[i];
+      p.angle = p.angle + p.speed;
       p.radius = p.baseRadius + Math.sin(p.angle * 2) * p.wobbleAmp * 12;
-    });
+    }
   }
 
+  // animation loop
   function loop() {
-    if (!paused) update();
+    if (!paused) {
+      update();
+    }
     draw();
     animationId = requestAnimationFrame(loop);
   }
 
+  // resize
   function onResize() {
-    ({ width, height } = syncCanvasToContainer(canvas, ctx, container));
+    size = fitCanvas(canvas, ctx, container);
+    width = size.width;
+    height = size.height;
     items = buildOrbitItems(sourcePool, count, motion, intensity, width, height);
   }
 
@@ -468,26 +548,39 @@ export function renderOrbit(container, data, options = {}) {
 
   loop();
 
+  // cleanup
   container._vortexInstance = {
-    cleanup: () => {
-      if (animationId) cancelAnimationFrame(animationId);
+    cleanup: function () {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
       animationId = null;
-      resizeObserver?.disconnect();
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
       resizeObserver = null;
     }
   };
 
   return {
-    pause: () => { paused = true; },
-    resume: () => { paused = false; },
-    destroy: () => destroyVortex(container)
+    pause: function () {
+      paused = true;
+    },
+    resume: function () {
+      paused = false;
+    },
+    destroy: function () {
+      destroyVortex(container);
+    }
   };
 }
 
 export function destroyVortex(container) {
-  if (container?._vortexInstance) {
+  if (container && container._vortexInstance) {
     container._vortexInstance.cleanup();
     container._vortexInstance = null;
   }
-  if (container) container.innerHTML = '';
+  if (container) {
+    container.innerHTML = '';
+  }
 }

@@ -1,24 +1,38 @@
-/**
- * ASCII — animated minimalist text-art.
- *
- * density   → word count, repetition, scatter rows
- * intensity → indentation spread, fragmentation, glitch spacing
- * motion    → reflow / flicker speed
- * paused    → freeze current frame
- */
+// ASCII text-art mode — animated monospace layout.
 
 import { clamp01 } from './controls.js';
 
+// remove any canvas/svg left in the studio container
 function clearVisualization(container) {
-  if (!container) return;
-  container.querySelectorAll('canvas, svg').forEach((el) => el.remove());
+  if (!container) {
+    return;
+  }
+  const extras = container.querySelectorAll('canvas, svg');
+  for (let i = 0; i < extras.length; i++) {
+    extras[i].remove();
+  }
 }
 
+// pick the most important words and repeat them to fill the frame
 function getWords(data, count) {
-  const pool = (data.words || data.particles?.filter((p) => p.type === 'core') || [])
-    .sort((a, b) => (b.frequency || 1) - (a.frequency || 1));
+  let pool = data.words || [];
 
-  if (!pool.length) return [{ text: 'silence', frequency: 1 }];
+  if (!pool.length && data.particles) {
+    pool = [];
+    for (let i = 0; i < data.particles.length; i++) {
+      if (data.particles[i].type === 'core') {
+        pool.push(data.particles[i]);
+      }
+    }
+  }
+
+  pool.sort(function (a, b) {
+    return (b.frequency || 1) - (a.frequency || 1);
+  });
+
+  if (!pool.length) {
+    return [{ text: 'silence', frequency: 1 }];
+  }
 
   const words = [];
   for (let i = 0; i < count; i++) {
@@ -27,15 +41,30 @@ function getWords(data, count) {
   return words;
 }
 
+// turn slider values into layout settings for this mode
 function getAsciiParams(options) {
-  const density = clamp01(options.density ?? 0.6);
-  const motion = clamp01(options.motion ?? 0.4);
-  const intensity = clamp01(options.intensity ?? 0.4);
+  let density = options.density;
+  if (density === undefined) {
+    density = 0.6;
+  }
+  density = clamp01(density);
+
+  let motion = options.motion;
+  if (motion === undefined) {
+    motion = 0.4;
+  }
+  motion = clamp01(motion);
+
+  let intensity = options.intensity;
+  if (intensity === undefined) {
+    intensity = 0.4;
+  }
+  intensity = clamp01(intensity);
 
   return {
-    density,
-    motion,
-    intensity,
+    density: density,
+    motion: motion,
+    intensity: intensity,
     wordCount: Math.round(3 + density * 28),
     maxRepeat: Math.round(1 + density * 12 + intensity * 4),
     scatterRows: Math.round(2 + density * 20),
@@ -46,21 +75,33 @@ function getAsciiParams(options) {
   };
 }
 
+// break up a word with spaces when intensity is high
 function fragmentWord(str, intensity, tick, index) {
-  if (intensity < 0.25) return str;
+  if (intensity < 0.25) {
+    return str;
+  }
 
   const gapEvery = Math.max(3, Math.floor(10 - intensity * 6));
-  return str
-    .split('')
-    .map((char, i) => {
-      if (i > 0 && (i + tick + index) % gapEvery === 0) {
-        return intensity > 0.55 ? `${char} · ` : `${char} `;
+  const chars = str.split('');
+  let result = '';
+
+  for (let i = 0; i < chars.length; i++) {
+    const char = chars[i];
+    if (i > 0 && (i + tick + index) % gapEvery === 0) {
+      if (intensity > 0.55) {
+        result = result + char + ' · ';
+      } else {
+        result = result + char + ' ';
       }
-      return char;
-    })
-    .join('');
+    } else {
+      result = result + char;
+    }
+  }
+
+  return result;
 }
 
+// build one frame of ASCII art as an array of text lines
 function buildAsciiFrame(data, params, tick) {
   const words = getWords(data, params.wordCount);
   const pulse = Math.sin(tick * 0.08) * 0.5 + 0.5;
@@ -68,7 +109,7 @@ function buildAsciiFrame(data, params, tick) {
   const header = [
     '· · · · · · · · · · · · · · · · · · · · · · · · · · · · · · ·',
     '',
-    `${' '.repeat(Math.round(pulse * params.padSpread))}e c h o`,
+    ' '.repeat(Math.round(pulse * params.padSpread)) + 'e c h o',
     '',
     '· · · · · · · · · · · · · · · · · · · · · · · · · · · · · · ·',
     ''
@@ -76,16 +117,19 @@ function buildAsciiFrame(data, params, tick) {
 
   const body = [];
 
-  words.forEach((w, i) => {
+  // main word block
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
     const word = w.text || w;
     const repeat = Math.max(1, Math.min(w.frequency || 1, params.maxRepeat));
     const wave = Math.sin(tick * 0.12 + i * 0.65) * 0.5 + 0.5;
     const indent = ' '.repeat(Math.round(wave * params.padSpread * 2));
-    let line = `${indent}${word.repeat(repeat)}`;
+    let line = indent + word.repeat(repeat);
     line = fragmentWord(line, params.intensity, tick, i);
     body.push(line);
-  });
+  }
 
+  // extra scattered lines below
   if (params.scatterRows > 0) {
     body.push('');
     for (let r = 0; r < params.scatterRows; r++) {
@@ -94,55 +138,71 @@ function buildAsciiFrame(data, params, tick) {
       const drift = Math.sin(tick * 0.1 + r * 0.9) * 0.5 + 0.5;
       const pad = ' '.repeat(Math.round(drift * params.padSpread * 3));
       const repeats = Math.max(1, Math.round(1 + params.density * 4 * (drift + 0.2)));
-      body.push(fragmentWord(`${pad}${word.repeat(repeats)}`, params.jitter, tick + r, r));
+      body.push(fragmentWord(pad + word.repeat(repeats), params.jitter, tick + r, r));
     }
   }
 
   body.push('');
   body.push('— — — — — — — — — — — — — — — — — — — — — — — — — —');
 
+  // pull a moving quote from the original passage
   const tokens = (data.text || '').split(/\s+/).filter(Boolean);
-  const start = Math.floor((Math.sin(tick * 0.05) * 0.5 + 0.5) * Math.max(0, tokens.length - params.fragmentLen));
-  const fragment = tokens
-    .slice(start, start + params.fragmentLen)
-    .join(' ')
-    .toLowerCase();
+  const start = Math.floor(
+    (Math.sin(tick * 0.05) * 0.5 + 0.5) * Math.max(0, tokens.length - params.fragmentLen)
+  );
+  const fragment = tokens.slice(start, start + params.fragmentLen).join(' ').toLowerCase();
 
   if (fragment) {
     body.push('');
     const quotePad = ' '.repeat(Math.round(params.intensity * params.padSpread));
-    body.push(`${quotePad}"${fragment}${params.intensity > 0.6 ? ' …' : '…'}"`);
+    if (params.intensity > 0.6) {
+      body.push(quotePad + '"' + fragment + ' …"');
+    } else {
+      body.push(quotePad + '"' + fragment + '…"');
+    }
   }
 
   body.push('');
   const indexWords = words.slice(0, Math.min(words.length, Math.round(4 + params.density * 10)));
   const separator = params.intensity > 0.45 ? '  ·  ' : ' · ';
-  body.push(`  [ ${indexWords.map((w) => w.text || w).join(separator)} ]`);
+  const indexLine = indexWords.map(function (w) {
+    return w.text || w;
+  }).join(separator);
+  body.push('  [ ' + indexLine + ' ]');
 
   if (params.intensity > 0.7 && tick % 2 === 0) {
     body.push('');
-    body.push('  ' + indexWords.map((w) => (w.text || w)[0] || '').join(' '.repeat(Math.round(params.padSpread / 2))));
+    const initials = indexWords.map(function (w) {
+      const text = w.text || w;
+      return text[0] || '';
+    }).join(' '.repeat(Math.round(params.padSpread / 2)));
+    body.push('  ' + initials);
   }
 
-  return [...header, ...body];
+  return header.concat(body);
 }
 
-export function renderAscii(container, asciiEl, data, options = {}) {
+export function renderAscii(container, asciiEl, data, options) {
+  if (!options) {
+    options = {};
+  }
+
   destroyAscii(container, asciiEl);
 
   if (!asciiEl) {
     throw new Error('ASCII render failed: missing #ascii-output element.');
   }
 
+  // setup
   clearVisualization(container);
   container.style.display = 'none';
   asciiEl.hidden = false;
 
   let simOptions = {
-    density: clamp01(options.density ?? 0.6),
-    motion: clamp01(options.motion ?? 0.4),
-    intensity: clamp01(options.intensity ?? 0.4),
-    paused: options.paused ?? false
+    density: clamp01(options.density !== undefined ? options.density : 0.6),
+    motion: clamp01(options.motion !== undefined ? options.motion : 0.4),
+    intensity: clamp01(options.intensity !== undefined ? options.intensity : 0.4),
+    paused: options.paused ? options.paused : false
   };
 
   let params = getAsciiParams(simOptions);
@@ -150,15 +210,18 @@ export function renderAscii(container, asciiEl, data, options = {}) {
   let frame = 0;
   let animationId = null;
 
+  // drawing
   function renderFrame() {
     params = getAsciiParams(simOptions);
-    asciiEl.textContent = buildAsciiFrame(data, params, tick).join('\n');
+    const lines = buildAsciiFrame(data, params, tick);
+    asciiEl.textContent = lines.join('\n');
   }
 
+  // animation loop
   function loop() {
-    frame += 1;
+    frame = frame + 1;
     if (!simOptions.paused && frame % params.regenEvery === 0) {
-      tick += 1;
+      tick = tick + 1;
       renderFrame();
     }
     animationId = requestAnimationFrame(loop);
@@ -168,40 +231,62 @@ export function renderAscii(container, asciiEl, data, options = {}) {
   loop();
 
   const api = {
-    updateOptions(newOptions = {}) {
-      if (newOptions.density !== undefined) simOptions.density = clamp01(newOptions.density);
-      if (newOptions.motion !== undefined) simOptions.motion = clamp01(newOptions.motion);
-      if (newOptions.intensity !== undefined) simOptions.intensity = clamp01(newOptions.intensity);
-      if (newOptions.paused !== undefined) simOptions.paused = newOptions.paused;
+    updateOptions: function (newOptions) {
+      if (!newOptions) {
+        newOptions = {};
+      }
+      if (newOptions.density !== undefined) {
+        simOptions.density = clamp01(newOptions.density);
+      }
+      if (newOptions.motion !== undefined) {
+        simOptions.motion = clamp01(newOptions.motion);
+      }
+      if (newOptions.intensity !== undefined) {
+        simOptions.intensity = clamp01(newOptions.intensity);
+      }
+      if (newOptions.paused !== undefined) {
+        simOptions.paused = newOptions.paused;
+      }
       params = getAsciiParams(simOptions);
       renderFrame();
     },
-    pause: () => {
+    pause: function () {
       simOptions.paused = true;
     },
-    resume: () => {
+    resume: function () {
       simOptions.paused = false;
     },
-    destroy: () => destroyAscii(container, asciiEl)
+    destroy: function () {
+      destroyAscii(container, asciiEl);
+    }
   };
 
-  if (container) container._asciiInstance = { cleanup: () => {
-    if (animationId) cancelAnimationFrame(animationId);
-    animationId = null;
-  }};
+  // cleanup
+  if (container) {
+    container._asciiInstance = {
+      cleanup: function () {
+        if (animationId) {
+          cancelAnimationFrame(animationId);
+        }
+        animationId = null;
+      }
+    };
+  }
 
   return api;
 }
 
 export function destroyAscii(container, asciiEl) {
-  if (container?._asciiInstance) {
+  if (container && container._asciiInstance) {
     container._asciiInstance.cleanup();
     container._asciiInstance = null;
   }
 
   clearVisualization(container);
 
-  if (container) container.style.display = '';
+  if (container) {
+    container.style.display = '';
+  }
 
   if (asciiEl) {
     asciiEl.hidden = true;

@@ -1,23 +1,7 @@
-/**
- * Soup — poetic drifting words with live controls and cursor interaction.
- *
- * density  → particle count (sparse 6 → crowded ~130)
- * motion   → drift speed and wobble tempo
- * intensity → turbulence, cursor influence, organic noise
- *
- * Tuning notes (adjust these if motion feels too fast/slow):
- *   DENSITY_MAX     — raise for denser high-slider feel
- *   baseSpeed scale — motion * 4.5 is the main speed dial
- *   noiseForce scale — intensity * 0.095 drives turbulence
- *   cursorRadius    — how far the pointer pushes words
- *   trailFade       — lower = longer dreamy trails
- *   MIN/MAX_ZOOM    — 0.5x–2.5x view limits; double-click canvas to reset
- *   ZOOM_SMOOTH     — interpolation speed (higher = snappier)
- */
+// Soup — drifting words with cursor push and wheel zoom.
 
 import { getThemeColors, withAlpha } from './theme.js';
-import { clamp01 } from './controls.js';
-import { measureContainer, syncCanvasToContainer, getStudioWrap } from './canvasSize.js';
+import { clamp01, getContainerSize, fitCanvas } from './controls.js';
 
 const DENSITY_MIN = 6;
 const DENSITY_MAX = 130;
@@ -27,34 +11,54 @@ const MAX_ZOOM = 2.5;
 const ZOOM_SMOOTH = 0.14;
 const ZOOM_WHEEL_SENSITIVITY = 0.0012;
 
+// how many words to show based on the density slider
 function targetParticleCount(density) {
   return Math.round(DENSITY_MIN + clamp01(density) * (DENSITY_MAX - DENSITY_MIN));
 }
 
+// get word templates from the analysis data
 function buildSourcePool(data) {
-  if (data.particles?.length) return [...data.particles];
+  if (data.particles && data.particles.length) {
+    return data.particles.slice();
+  }
 
-  const fromWords = (data.words || []).map((w) => ({
-    text: w.text,
-    type: 'core',
-    size: 0.7 + Math.min(w.frequency || 1, 5) * 0.25,
-    opacity: 0.65 + Math.min(w.frequency || 1, 5) * 0.07
-  }));
+  const fromWords = [];
+  const words = data.words || [];
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    fromWords.push({
+      text: w.text,
+      type: 'core',
+      size: 0.7 + Math.min(w.frequency || 1, 5) * 0.25,
+      opacity: 0.65 + Math.min(w.frequency || 1, 5) * 0.07
+    });
+  }
 
-  return fromWords.length
-    ? fromWords
-    : [{ text: 'silence', type: 'core', size: 1, opacity: 0.8 }];
+  if (fromWords.length) {
+    return fromWords;
+  }
+  return [{ text: 'silence', type: 'core', size: 1, opacity: 0.8 }];
 }
 
+// turn slider values into movement settings
 function getPhysics(options) {
-  const motion = clamp01(options.motion ?? 0.4);
-  const intensity = clamp01(options.intensity ?? 0.4);
+  let motion = options.motion;
+  if (motion === undefined) {
+    motion = 0.4;
+  }
+  motion = clamp01(motion);
+
+  let intensity = options.intensity;
+  if (intensity === undefined) {
+    intensity = 0.4;
+  }
+  intensity = clamp01(intensity);
 
   return {
     baseSpeed: 0.3 + motion * 4.5,
     noiseForce: 0.012 + intensity * 0.095,
     wobble: 0.006 + motion * 0.028 + intensity * 0.02,
-    parallax: 0.4 + intensity * 1.6,
+    drift: 0.4 + intensity * 1.6,
     damp: 0.985 - (1 - motion) * 0.012,
     maxSpeed: 1.8 + motion * 5.5,
     cursorRadius: 80 + intensity * 110,
@@ -63,22 +67,24 @@ function getPhysics(options) {
   };
 }
 
+// keep particles from moving too fast
 function clampVelocity(p, maxSpeed) {
   const speed = Math.hypot(p.vx, p.vy);
   if (speed > maxSpeed) {
     const scale = maxSpeed / speed;
-    p.vx *= scale;
-    p.vy *= scale;
+    p.vx = p.vx * scale;
+    p.vy = p.vy * scale;
   }
 }
 
+// create one drifting word at a random spot
 function spawnParticle(template, width, height, physics) {
   const speed = physics.baseSpeed * (0.45 + (template.size || 1) * 0.35);
   return {
     text: template.text,
     type: template.type || 'core',
-    size: template.size ?? 1,
-    opacity: template.opacity ?? 0.7,
+    size: template.size !== undefined ? template.size : 1,
+    opacity: template.opacity !== undefined ? template.opacity : 0.7,
     x: Math.random() * width,
     y: Math.random() * height,
     vx: (Math.random() - 0.5) * speed,
@@ -88,6 +94,7 @@ function spawnParticle(template, width, height, physics) {
   };
 }
 
+// fill the canvas with the right number of particles
 function buildParticles(sourcePool, count, width, height, physics) {
   const particles = [];
   for (let i = 0; i < count; i++) {
@@ -96,57 +103,72 @@ function buildParticles(sourcePool, count, width, height, physics) {
   return particles;
 }
 
+// add or remove particles when density changes
 function resizeParticleField(particles, count, sourcePool, width, height, physics) {
-  if (particles.length === count) return particles;
-
+  if (particles.length === count) {
+    return particles;
+  }
   if (particles.length > count) {
     return particles.slice(0, count);
   }
 
-  const next = [...particles];
+  const next = particles.slice();
   while (next.length < count) {
     next.push(spawnParticle(sourcePool[next.length % sourcePool.length], width, height, physics));
   }
   return next;
 }
 
+// find the word closest to the cursor for dragging
 function findNearestParticle(particles, x, y, radius) {
   let nearest = null;
   let nearestDist = radius;
 
-  particles.forEach((p) => {
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
     const dist = Math.hypot(p.x - x, p.y - y);
     if (dist < nearestDist) {
       nearestDist = dist;
       nearest = p;
     }
-  });
+  }
 
   return nearest;
 }
 
-export function renderSoup(container, data, options = {}) {
+export function renderSoup(container, data, options) {
+  if (!options) {
+    options = {};
+  }
+
   destroySoup(container);
 
+  // setup
   const sourcePool = buildSourcePool(data);
   let simOptions = {
-    density: clamp01(options.density ?? 0.6),
-    motion: clamp01(options.motion ?? 0.4),
-    intensity: clamp01(options.intensity ?? 0.4),
-    paused: options.paused ?? false
+    density: clamp01(options.density !== undefined ? options.density : 0.6),
+    motion: clamp01(options.motion !== undefined ? options.motion : 0.4),
+    intensity: clamp01(options.intensity !== undefined ? options.intensity : 0.4),
+    paused: options.paused ? options.paused : false
   };
 
-  let { width, height } = measureContainer(container);
+  let size = getContainerSize(container);
+  let width = size.width;
+  let height = size.height;
 
   const canvas = document.createElement('canvas');
   canvas.style.touchAction = 'none';
   canvas.style.cursor = 'grab';
   container.appendChild(canvas);
 
-  const wheelSurface = getStudioWrap(container) || canvas;
-
+  const wheelSurface = container.closest('.studio-canvas-wrap') || canvas;
   const ctx = canvas.getContext('2d');
-  ({ width, height } = syncCanvasToContainer(canvas, ctx, container));
+
+  size = fitCanvas(canvas, ctx, container);
+  width = size.width;
+  height = size.height;
+
+  // particles
   let physics = getPhysics(simOptions);
   let particles = buildParticles(
     sourcePool,
@@ -195,9 +217,9 @@ export function renderSoup(container, data, options = {}) {
   }
 
   function updateView() {
-    view.scale += (view.targetScale - view.scale) * ZOOM_SMOOTH;
-    view.offsetX += (view.targetOffsetX - view.offsetX) * ZOOM_SMOOTH;
-    view.offsetY += (view.targetOffsetY - view.offsetY) * ZOOM_SMOOTH;
+    view.scale = view.scale + (view.targetScale - view.scale) * ZOOM_SMOOTH;
+    view.offsetX = view.offsetX + (view.targetOffsetX - view.offsetX) * ZOOM_SMOOTH;
+    view.offsetY = view.offsetY + (view.targetOffsetY - view.offsetY) * ZOOM_SMOOTH;
   }
 
   function resetView() {
@@ -209,7 +231,9 @@ export function renderSoup(container, data, options = {}) {
   function zoomAtScreenPoint(sx, sy, deltaY) {
     const factor = Math.exp(-deltaY * ZOOM_WHEEL_SENSITIVITY);
     const nextScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, view.targetScale * factor));
-    if (nextScale === view.targetScale) return;
+    if (nextScale === view.targetScale) {
+      return;
+    }
 
     const worldX = (sx - view.targetOffsetX) / view.targetScale;
     const worldY = (sy - view.targetOffsetY) / view.targetScale;
@@ -228,42 +252,50 @@ export function renderSoup(container, data, options = {}) {
     particles = resizeParticleField(particles, count, sourcePool, width, height, physics);
   }
 
+  // physics — cursor push and drag
   function applyCursorForces() {
     if (pointer.dragging) {
       const p = pointer.dragging;
-      p.vx += (pointer.x - p.x) * 0.14;
-      p.vy += (pointer.y - p.y) * 0.14;
-      p.x += p.vx;
-      p.y += p.vy;
+      p.vx = p.vx + (pointer.x - p.x) * 0.14;
+      p.vy = p.vy + (pointer.y - p.y) * 0.14;
+      p.x = p.x + p.vx;
+      p.y = p.y + p.vy;
       clampVelocity(p, physics.maxSpeed * 1.4);
     }
 
-    particles.forEach((p) => {
-      if (p === pointer.dragging) return;
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      if (p === pointer.dragging) {
+        continue;
+      }
 
       const dx = p.x - pointer.x;
       const dy = p.y - pointer.y;
       const dist = Math.hypot(dx, dy);
       const radius = worldCursorRadius();
-      if (dist >= radius || dist < 1) return;
+      if (dist >= radius || dist < 1) {
+        continue;
+      }
 
       const falloff = 1 - dist / radius;
       const push = physics.cursorStrength * falloff * falloff;
 
       if (pointer.down) {
-        p.vx += (dx / dist) * push;
-        p.vy += (dy / dist) * push;
+        p.vx = p.vx + (dx / dist) * push;
+        p.vy = p.vy + (dy / dist) * push;
       } else if (Math.abs(pointer.vx) + Math.abs(pointer.vy) > 0.05) {
-        p.vx += pointer.vx * push * 0.35;
-        p.vy += pointer.vy * push * 0.35;
+        p.vx = p.vx + pointer.vx * push * 0.35;
+        p.vy = p.vy + pointer.vy * push * 0.35;
       }
-    });
+    }
   }
 
+  // physics — drift, wrap around edges, slow down over time
   function update() {
-    particles.forEach((p, i) => {
-      p.angle += physics.wobble;
-      p.phase += physics.wobble * 0.7;
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      p.angle = p.angle + physics.wobble;
+      p.phase = p.phase + physics.wobble * 0.7;
 
       const noiseX =
         Math.sin(p.angle + time * 0.012) * physics.noiseForce +
@@ -272,29 +304,37 @@ export function renderSoup(container, data, options = {}) {
         Math.cos(p.angle * 1.3 + time * 0.01) * physics.noiseForce +
         Math.cos(p.phase * 2.1 + i * 0.2) * physics.noiseForce * 0.6;
 
-      p.vx += noiseX;
-      p.vy += noiseY;
+      p.vx = p.vx + noiseX;
+      p.vy = p.vy + noiseY;
+      p.vx = p.vx + Math.sin(time * 0.004 + p.phase) * physics.drift * 0.002;
+      p.vy = p.vy + Math.cos(time * 0.003 + p.phase * 1.2) * physics.drift * 0.002;
 
-      p.vx += Math.sin(time * 0.004 + p.phase) * physics.parallax * 0.002;
-      p.vy += Math.cos(time * 0.003 + p.phase * 1.2) * physics.parallax * 0.002;
+      p.x = p.x + p.vx;
+      p.y = p.y + p.vy;
 
-      p.x += p.vx;
-      p.y += p.vy;
+      if (p.x < -60) {
+        p.x = width + 60;
+      }
+      if (p.x > width + 60) {
+        p.x = -60;
+      }
+      if (p.y < -30) {
+        p.y = height + 30;
+      }
+      if (p.y > height + 30) {
+        p.y = -30;
+      }
 
-      if (p.x < -60) p.x = width + 60;
-      if (p.x > width + 60) p.x = -60;
-      if (p.y < -30) p.y = height + 30;
-      if (p.y > height + 30) p.y = -30;
-
-      p.vx *= physics.damp;
-      p.vy *= physics.damp;
+      p.vx = p.vx * physics.damp;
+      p.vy = p.vy * physics.damp;
       clampVelocity(p, physics.maxSpeed);
-    });
+    }
 
     applyCursorForces();
-    time += 1;
+    time = time + 1;
   }
 
+  // drawing
   function draw() {
     const theme = getThemeColors();
 
@@ -305,24 +345,31 @@ export function renderSoup(container, data, options = {}) {
     ctx.translate(view.offsetX, view.offsetY);
     ctx.scale(view.scale, view.scale);
 
-    particles.forEach((p) => {
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
       const fontSize = 12 + p.size * 10;
-      ctx.font = `${p.type === 'core' ? 500 : 400} ${fontSize}px "Cormorant Garamond", serif`;
-      const base = p.type === 'core' ? theme.vizCore : theme.vizRelated;
-      ctx.fillStyle = withAlpha(base, p.opacity * (p.type === 'core' ? 1 : 0.65));
+      const weight = p.type === 'core' ? 500 : 400;
+      ctx.font = weight + ' ' + fontSize + 'px "Cormorant Garamond", serif';
+      const base = p.type === 'core' ? theme.text : theme.muted;
+      const alpha = p.opacity * (p.type === 'core' ? 1 : 0.65);
+      ctx.fillStyle = withAlpha(base, alpha);
       ctx.fillText(p.text, p.x, p.y);
-    });
+    }
 
     ctx.restore();
   }
 
+  // animation loop
   function loop() {
     updateView();
-    if (!simOptions.paused) update();
+    if (!simOptions.paused) {
+      update();
+    }
     draw();
     animationId = requestAnimationFrame(loop);
   }
 
+  // pointer interaction
   function setPointerPosition(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
     const sx = clientX - rect.left;
@@ -375,22 +422,25 @@ export function renderSoup(container, data, options = {}) {
     resetView();
   }
 
+  // resize
   function onResize() {
     const prevWidth = width;
     const prevHeight = height;
-    ({ width, height } = syncCanvasToContainer(canvas, ctx, container));
+    size = fitCanvas(canvas, ctx, container);
+    width = size.width;
+    height = size.height;
 
     if (prevWidth > 0 && prevHeight > 0 && (width !== prevWidth || height !== prevHeight)) {
       const scaleX = width / prevWidth;
       const scaleY = height / prevHeight;
-      particles.forEach((p) => {
-        p.x *= scaleX;
-        p.y *= scaleY;
-      });
-      pointer.x *= scaleX;
-      pointer.y *= scaleY;
-      pointer.lastX *= scaleX;
-      pointer.lastY *= scaleY;
+      for (let i = 0; i < particles.length; i++) {
+        particles[i].x = particles[i].x * scaleX;
+        particles[i].y = particles[i].y * scaleY;
+      }
+      pointer.x = pointer.x * scaleX;
+      pointer.y = pointer.y * scaleY;
+      pointer.lastX = pointer.lastX * scaleX;
+      pointer.lastY = pointer.lastY * scaleY;
     }
 
     syncDensity();
@@ -410,13 +460,24 @@ export function renderSoup(container, data, options = {}) {
   loop();
 
   const api = {
-    updateOptions(newOptions = {}) {
+    updateOptions: function (newOptions) {
+      if (!newOptions) {
+        newOptions = {};
+      }
       const prevDensity = simOptions.density;
 
-      if (newOptions.density !== undefined) simOptions.density = clamp01(newOptions.density);
-      if (newOptions.motion !== undefined) simOptions.motion = clamp01(newOptions.motion);
-      if (newOptions.intensity !== undefined) simOptions.intensity = clamp01(newOptions.intensity);
-      if (newOptions.paused !== undefined) simOptions.paused = newOptions.paused;
+      if (newOptions.density !== undefined) {
+        simOptions.density = clamp01(newOptions.density);
+      }
+      if (newOptions.motion !== undefined) {
+        simOptions.motion = clamp01(newOptions.motion);
+      }
+      if (newOptions.intensity !== undefined) {
+        simOptions.intensity = clamp01(newOptions.intensity);
+      }
+      if (newOptions.paused !== undefined) {
+        simOptions.paused = newOptions.paused;
+      }
 
       syncPhysics();
 
@@ -424,18 +485,23 @@ export function renderSoup(container, data, options = {}) {
         syncDensity();
       }
     },
-    pause: () => {
+    pause: function () {
       simOptions.paused = true;
     },
-    resume: () => {
+    resume: function () {
       simOptions.paused = false;
     },
-    destroy: () => destroySoup(container)
+    destroy: function () {
+      destroySoup(container);
+    }
   };
 
+  // cleanup
   container._soupInstance = {
-    cleanup: () => {
-      if (animationId) cancelAnimationFrame(animationId);
+    cleanup: function () {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
       animationId = null;
       resizeObserver.disconnect();
       canvas.removeEventListener('pointerdown', onPointerDown);
@@ -452,9 +518,11 @@ export function renderSoup(container, data, options = {}) {
 }
 
 export function destroySoup(container) {
-  if (container?._soupInstance) {
+  if (container && container._soupInstance) {
     container._soupInstance.cleanup();
     container._soupInstance = null;
   }
-  if (container) container.innerHTML = '';
+  if (container) {
+    container.innerHTML = '';
+  }
 }

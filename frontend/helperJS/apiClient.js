@@ -1,29 +1,16 @@
-/**
- * Echo API client — frontend HTTP layer for calling my backend API.
- *
- * This file only sends fetch requests to /api/* routes exposed by backend/server.js.
- * It is NOT the API itself. When the Echo server is offline, it falls back to
- * optional local text processing in textProcessing.js (no external APIs).
- */
+// Calls my Express API at /api/* (falls back to local textProcessing when offline).
 
 import { analyzeTextLocally } from './textProcessing.js';
 import { clamp01 } from './controls.js';
 
-/** Echo API origin — same host when served by Express; fallback for Live Server. */
 export function getApiBase() {
   const { protocol, hostname, port } = window.location;
 
-  if (
-    protocol === 'file:'
-    || (hostname !== 'localhost' && hostname !== '127.0.0.1')
-  ) {
+  if (protocol === 'file:' || (hostname !== 'localhost' && hostname !== '127.0.0.1')) {
     return 'http://localhost:3000';
   }
 
-  if (port === '3000' || port === '') {
-    return '';
-  }
-
+  if (port === '3000' || port === '') return '';
   return 'http://localhost:3000';
 }
 
@@ -41,34 +28,12 @@ export async function analyzeText(text, options = {}) {
       body: JSON.stringify({ text, density })
     });
 
-    if (!response.ok) {
-      throw new Error(`Echo API failed: ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`Echo API failed: ${response.status}`);
 
     const data = await response.json();
     return { ...data, meta: { ...data.meta, source: 'echo-api' } };
-  } catch (error) {
-    console.warn('Echo API unavailable, using local fallback:', error);
+  } catch {
     return analyzeTextLocally(text, density);
-  }
-}
-
-export async function fetchArtData(text, mode, options = {}) {
-  const density = clamp01(options.density ?? 1);
-  const endpoint = `/api/art/${mode}`;
-
-  try {
-    const response = await fetch(apiUrl(endpoint), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, ...options })
-    });
-    if (!response.ok) throw new Error(`Echo API failed: ${response.status}`);
-    return response.json();
-  } catch (error) {
-    console.warn('Echo art API unavailable, using local fallback:', error);
-    const analysis = analyzeTextLocally(text, density);
-    return { mode, ...analysis };
   }
 }
 
@@ -87,16 +52,11 @@ export async function saveWork(work) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(work)
     });
-  } catch (error) {
-    throw new Error(
-      'Cannot reach the Echo API. Open http://localhost:3000 (run npm run dev) — do not use Live Server or file://.'
-    );
+  } catch {
+    throw new Error('Open http://localhost:3000 and run npm run dev — not Live Server.');
   }
 
-  if (!response.ok) {
-    throw await parseApiError(response, 'Failed to save work');
-  }
-
+  if (!response.ok) throw await parseApiError(response, 'Failed to save work');
   return response.json();
 }
 
@@ -106,24 +66,19 @@ export async function fetchWorks() {
   try {
     response = await fetch(apiUrl('/api/works'));
   } catch {
-    throw new Error('Cannot reach the Echo API. Open http://localhost:3000 and run npm run dev.');
+    throw new Error('Open http://localhost:3000 and run npm run dev.');
   }
 
-  if (!response.ok) {
-    throw await parseApiError(response, 'Failed to load gallery');
-  }
-
+  if (!response.ok) throw await parseApiError(response, 'Failed to load gallery');
   return response.json();
 }
 
 export async function fetchWork(id) {
   const response = await fetch(apiUrl(`/api/works/${encodeURIComponent(id)}`));
-
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
     throw new Error(error.error || 'Failed to load work');
   }
-
   return response.json();
 }
 
