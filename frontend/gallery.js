@@ -1,6 +1,7 @@
 import { applyTheme, initTheme } from './helperJS/theme.js';
 import { fetchWorks, deleteWork, updateWork } from './helperJS/apiClient.js';
 import { renderEchoMode, destroyEchoMode } from './helperJS/controls.js';
+import { analyzeTextLocally, SAMPLE_PASSAGE } from './helperJS/textProcessing.js';
 
 // gallery page elements
 
@@ -38,6 +39,28 @@ applyTheme(initTheme());
 loadGallery();
 
 
+// placeholder piece when the gallery API is unavailable
+function getDemoWork() {
+  const analysis = analyzeTextLocally(SAMPLE_PASSAGE, 0.6);
+
+  return {
+    id: 'demo-local',
+    title: 'Romantic Death · demo',
+    originalText: SAMPLE_PASSAGE,
+    coreWords: analysis.words,
+    relatedWords: analysis.relatedWords,
+    particles: analysis.particles,
+    mode: 'network',
+    density: 0.6,
+    motion: 0.4,
+    intensity: 0.4,
+    options: { intensity: 0.4, density: 0.6, motion: 0.4 },
+    analysisData: analysis,
+    createdAt: new Date().toISOString()
+  };
+}
+
+
 // fetch saved pieces on load and render them (or show empty/error state)
 async function loadGallery() {
   notice.textContent = 'Loading saved Echo pieces...';
@@ -57,8 +80,9 @@ async function loadGallery() {
 
   } catch (error) {
     console.log(error);
-    notice.textContent = 'Failed to load gallery.';
-    grid.innerHTML = '<p class="gallery-empty">Could not load saved pieces.</p>';
+    works = [getDemoWork()];
+    notice.textContent = 'Showing a demo piece — connect the backend to load saved works.';
+    renderGrid();
   }
 }
 
