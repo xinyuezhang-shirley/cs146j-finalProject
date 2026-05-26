@@ -47,30 +47,36 @@ const saveBtn = document.querySelector('#save-btn');
 const saveStatus = document.querySelector('#save-status');
 const backBtn = document.querySelector('#studio-back-btn');
 
-// small helpers
+/***--------------------------small helpers-------------------------***/
+//directly scroll to the sectio needed
 function scrollToSection(id) {
   document.querySelector('#' + id).scrollIntoView({ behavior: 'smooth' });
 }
 
+//give a glass background to the nav bar
 function updateNav() {
   nav.classList.toggle('is-scrolled', window.scrollY > 40);
 }
 
+//counts characters in texttarea
 function updateCounter() {
   const length = textInput.value.length;
   charCounter.textContent = length + ' / 1200';
 }
 
+//show error when there's no text but still tries to transform text
 function showError(message) {
   composeError.textContent = message;
   composeError.hidden = false;
 }
 
+//called when typing (with count char)
 function clearError() {
   composeError.textContent = '';
   composeError.hidden = true;
 }
 
+//write state values on screen (update when slider moves)
 function updateSliderLabels() {
   intensityValue.textContent = state.intensity;
   densityValue.textContent = state.density;
@@ -85,12 +91,14 @@ function getOptions() {
   };
 }
 
+//switch theme btn moonlight & paper
 function setTheme(theme) {
   state.theme = applyTheme(theme);
   syncThemeUI(state.theme, themeNightBtn, themePaperBtn);
 }
 
-// updates the small text line above the visualization
+
+/***-----------updates the small text line above the visualization--------------***/
 function updateSummary() {
   if (!state.analysis) {
     fieldSummary.innerHTML =
@@ -101,9 +109,10 @@ function updateSummary() {
       '</span>';
     return;
   }
-
   const words = state.analysis.words || [];
+  //related words given by api
   const relatedWords = state.analysis.relatedWords || [];
+
   const core = words.slice(0, 6).map(function (word) {
     return word.text;
   });
@@ -112,7 +121,6 @@ function updateSummary() {
   });
 
   let html;
-
   if (core.length) {
     html =
       '<span class="field-summary__line">' +
@@ -135,7 +143,6 @@ function updateSummary() {
         '<span class="field-summary__words">' + related.join(', ') + '</span>' +
       '</span>';
   }
-
   html +=
     '<span class="field-summary__line field-summary__line--controls">' +
       '<span class="field-summary__meta">density ' + state.density + '</span>' +
