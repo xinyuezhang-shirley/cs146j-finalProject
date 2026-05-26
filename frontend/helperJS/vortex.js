@@ -11,10 +11,8 @@ const ZOOM_SMOOTH = 0.14;
 const ZOOM_WHEEL_SENSITIVITY = 0.0012;
 
 function targetParticleCount(density) {
-  let d = density;
-  if (d < 0) d = 0;
-  if (d > 1) d = 1;
-  return Math.round(DENSITY_MIN + d * (DENSITY_MAX - DENSITY_MIN));
+  density = density || 0.6;
+  return Math.round(DENSITY_MIN + density * (DENSITY_MAX - DENSITY_MIN));
 }
 
 // get word templates from the analysis data
@@ -45,19 +43,8 @@ function buildSourcePool(data) {
 
 // turn slider values into spiral settings
 function getVortexParams(options) {
-  let motion = options.motion;
-  if (motion === undefined) {
-    motion = 0.4;
-  }
-  if (motion < 0) motion = 0;
-  if (motion > 1) motion = 1;
-
-  let intensity = options.intensity;
-  if (intensity === undefined) {
-    intensity = 0.4;
-  }
-  if (intensity < 0) intensity = 0;
-  if (intensity > 1) intensity = 1;
+  const motion = options.motion || 0.4;
+  const intensity = options.intensity || 0.4;
 
   return {
     motion: motion,
@@ -79,9 +66,9 @@ function createVortexParticle(template, index, params) {
   const importance = template.frequency || template.size || 1;
   let semanticScore;
   if (isCore) {
-    semanticScore = Math.min(1, template.semanticScore !== undefined ? template.semanticScore : importance / 5);
+    semanticScore = Math.min(1, (template.semanticScore || importance / 5));
   } else {
-    semanticScore = Math.min(1, template.semanticScore !== undefined ? template.semanticScore : 0.35);
+    semanticScore = Math.min(1, template.semanticScore || 0.35);
   }
 
   const spiralStep = params.spiralSpacing + params.intensity * 3;
@@ -141,26 +128,17 @@ function rebuildParticleLayout(particles, sourcePool, params) {
 }
 
 export function renderVortex(container, data, options) {
-  if (!options) {
-    options = {};
-  }
-
   destroyVortex(container);
 
-  // setup
+  options = options || {};
+
   const sourcePool = buildSourcePool(data);
   let simOptions = {
-    density: options.density !== undefined ? options.density : 0.6,
-    motion: options.motion !== undefined ? options.motion : 0.4,
-    intensity: options.intensity !== undefined ? options.intensity : 0.4,
-    paused: options.paused ? options.paused : false
+    density: options.density || 0.6,
+    motion: options.motion || 0.4,
+    intensity: options.intensity || 0.4,
+    paused: options.paused || false
   };
-  if (simOptions.density < 0) simOptions.density = 0;
-  if (simOptions.density > 1) simOptions.density = 1;
-  if (simOptions.motion < 0) simOptions.motion = 0;
-  if (simOptions.motion > 1) simOptions.motion = 1;
-  if (simOptions.intensity < 0) simOptions.intensity = 0;
-  if (simOptions.intensity > 1) simOptions.intensity = 1;
 
   let size = getContainerSize(container);
   let width = size.width;
@@ -377,28 +355,14 @@ export function renderVortex(container, data, options) {
 
   const api = {
     updateOptions: function (newOptions) {
-      if (!newOptions) {
-        newOptions = {};
-      }
+      newOptions = newOptions || {};
       const prevDensity = simOptions.density;
       const prevIntensity = simOptions.intensity;
 
-      if (newOptions.density !== undefined) {
-        simOptions.density = newOptions.density;
-        if (simOptions.density < 0) simOptions.density = 0;
-        if (simOptions.density > 1) simOptions.density = 1;
-      }
-      if (newOptions.motion !== undefined) {
-        simOptions.motion = newOptions.motion;
-        if (simOptions.motion < 0) simOptions.motion = 0;
-        if (simOptions.motion > 1) simOptions.motion = 1;
-      }
-      if (newOptions.intensity !== undefined) {
-        simOptions.intensity = newOptions.intensity;
-        if (simOptions.intensity < 0) simOptions.intensity = 0;
-        if (simOptions.intensity > 1) simOptions.intensity = 1;
-      }
-      if (newOptions.paused !== undefined) {
+      if (newOptions.density) simOptions.density = newOptions.density;
+      if (newOptions.motion) simOptions.motion = newOptions.motion;
+      if (newOptions.intensity) simOptions.intensity = newOptions.intensity;
+      if (newOptions.paused === true || newOptions.paused === false) {
         simOptions.paused = newOptions.paused;
       }
 
@@ -424,9 +388,7 @@ export function renderVortex(container, data, options) {
   // cleanup
   container._vortexInstance = {
     cleanup: function () {
-      if (animationId) {
-        cancelAnimationFrame(animationId);
-      }
+      cancelAnimationFrame(animationId);
       animationId = null;
       resizeObserver.disconnect();
       canvas.removeEventListener('pointerdown', onPointerDown);
@@ -442,55 +404,132 @@ export function renderVortex(container, data, options) {
 }
 
 // place words on concentric rings for orbit mode
-function buildOrbitItems(sourcePool, count, motion, intensity, width, height) {
-  const padding = 28;
-  const maxRadius = Math.max(36, Math.min(width, height) * 0.38 - padding);
-  const numRings = 8;
-  const wobbleAmp = 0.05 + intensity * 0.55;
-  const baseSpeed = 0.001 + motion * 0.009;
-  const items = [];
+function buildOrbitPool(data, count) {
+  const pool = [];
+  const words = (data.words || []).slice();
+  words.sort(function (a, b) {
+    return (b.frequency || 1) - (a.frequency || 1);
+  });
 
-  for (let i = 0; i < count; i++) {
-    const p = sourcePool[i % sourcePool.length];
-    const ringIndex = i % numRings;
-    const t = numRings <= 1 ? 1 : ringIndex / (numRings - 1);
-    const baseRadius = maxRadius * (0.32 + t * 0.68);
+  const related = data.relatedWords || [];
+  const coreCount = Math.min(words.length, Math.max(1, Math.round(count * 0.55)));
+  const relatedCount = count - coreCount;
 
-    items.push({
+  for (let i = 0; i < coreCount; i++) {
+    const w = words[i % words.length];
+    pool.push({
+      text: w.text,
+      type: 'core',
+      size: 0.9 + Math.min(w.frequency || 1, 5) * 0.12,
+      opacity: 0.92,
+      semanticScore: Math.min(1, (w.frequency || 1) / 5)
+    });
+  }
+
+  for (let i = 0; i < relatedCount; i++) {
+    if (related.length) {
+      const r = related[i % related.length];
+      pool.push({
+        text: r.text,
+        type: 'related',
+        size: 0.65,
+        opacity: 0.5 + (r.score || 0.3) * 0.35,
+        semanticScore: r.score || 0.35
+      });
+    } else {
+      const w = words[(coreCount + i) % words.length];
+      pool.push({
+        text: w.text,
+        type: 'related',
+        size: 0.7,
+        opacity: 0.55,
+        semanticScore: 0.35
+      });
+    }
+  }
+
+  return pool.slice(0, count);
+}
+
+function placeOrbitRing(group, innerBand, outerBand, maxRadius, minRadius, baseSpeed, wobbleAmp, wobbleRadius) {
+  const placed = [];
+  if (!group.length) {
+    return placed;
+  }
+
+  const rings = Math.min(3, Math.max(1, Math.ceil(group.length / 4)));
+  const perRing = Math.ceil(group.length / rings);
+
+  for (let i = 0; i < group.length; i++) {
+    const p = group[i];
+    const ringIdx = Math.min(rings - 1, Math.floor(i / perRing));
+    const slotOnRing = i - ringIdx * perRing;
+    const slotsThisRing = Math.min(perRing, group.length - ringIdx * perRing);
+    const ringT = rings <= 1 ? 0.5 : ringIdx / (rings - 1);
+    const radius = minRadius + (maxRadius - minRadius) * (innerBand + ringT * (outerBand - innerBand));
+    const angle = (slotOnRing / slotsThisRing) * Math.PI * 2 + ringIdx * 0.45;
+    const direction = p.type === 'core' ? 1 : -0.7;
+
+    placed.push({
       text: p.text,
       type: p.type,
       size: p.size,
       opacity: p.opacity,
       semanticScore: p.semanticScore,
-      angle: (i / count) * Math.PI * 2,
-      baseRadius: baseRadius,
-      radius: baseRadius,
-      speed: baseSpeed + (p.semanticScore || 0.3) * baseSpeed * 0.8,
-      wobbleAmp: wobbleAmp
+      angle: angle,
+      baseRadius: radius,
+      radius: radius,
+      speed: direction * (baseSpeed + (p.semanticScore || 0.3) * baseSpeed * 0.75),
+      wobbleAmp: wobbleAmp * (p.type === 'core' ? 0.65 : 1),
+      wobbleRadius: wobbleRadius
     });
   }
+
+  return placed;
+}
+
+function orbitDynamics(motion, intensity) {
+  return {
+    wobbleAmp: 0.06 + intensity * 0.9,
+    baseSpeed: 0.002 + motion * 0.028,
+    wobbleRadius: 8 + intensity * 22
+  };
+}
+
+function buildOrbitItems(sourcePool, motion, intensity, width, height) {
+  const padding = 36;
+  const maxRadius = Math.max(70, Math.min(width, height) * 0.42 - padding);
+  const minRadius = maxRadius * 0.2;
+  const dynamics = orbitDynamics(motion, intensity);
+  const wobbleAmp = dynamics.wobbleAmp;
+  const baseSpeed = dynamics.baseSpeed;
+
+  const core = [];
+  const related = [];
+  for (let i = 0; i < sourcePool.length; i++) {
+    if (sourcePool[i].type === 'core') {
+      core.push(sourcePool[i]);
+    } else {
+      related.push(sourcePool[i]);
+    }
+  }
+
+  const items = [];
+  items.push.apply(items, placeOrbitRing(core, 0, 0.4, maxRadius, minRadius, baseSpeed, wobbleAmp, dynamics.wobbleRadius));
+  items.push.apply(items, placeOrbitRing(related, 0.55, 0.95, maxRadius, minRadius, baseSpeed, wobbleAmp, dynamics.wobbleRadius));
 
   return items;
 }
 
 export function renderOrbit(container, data, options) {
-  if (!options) {
-    options = {};
-  }
-
   destroyVortex(container);
 
-  // setup
-  let density = options.density !== undefined ? options.density : 0.6;
-  let motion = options.motion !== undefined ? options.motion : 0.4;
-  let intensity = options.intensity !== undefined ? options.intensity : 0.4;
-  if (density < 0) density = 0;
-  if (density > 1) density = 1;
-  if (motion < 0) motion = 0;
-  if (motion > 1) motion = 1;
-  if (intensity < 0) intensity = 0;
-  if (intensity > 1) intensity = 1;
-  let paused = options.paused ? options.paused : false;
+  options = options || {};
+
+  let density = options.density ?? 0.6;
+  let motion = options.motion ?? 0.4;
+  let intensity = options.intensity ?? 0.4;
+  let paused = options.paused ?? false;
 
   let size = getContainerSize(container);
   let width = size.width;
@@ -504,12 +543,28 @@ export function renderOrbit(container, data, options) {
   width = size.width;
   height = size.height;
 
-  const sourcePool = buildSourcePool(data);
-  const count = targetParticleCount(density);
-  let items = buildOrbitItems(sourcePool, count, motion, intensity, width, height);
+  let sourcePool = buildOrbitPool(data, targetParticleCount(density));
+  let items = buildOrbitItems(sourcePool, motion, intensity, width, height);
 
   let animationId = null;
   let resizeObserver = null;
+
+  function syncDensity() {
+    sourcePool = buildOrbitPool(data, targetParticleCount(density));
+    items = buildOrbitItems(sourcePool, motion, intensity, width, height);
+  }
+
+  function applyDynamics() {
+    const dynamics = orbitDynamics(motion, intensity);
+
+    for (let i = 0; i < items.length; i++) {
+      const p = items[i];
+      const direction = p.type === 'core' ? 1 : -0.7;
+      p.speed = direction * (dynamics.baseSpeed + (p.semanticScore || 0.3) * dynamics.baseSpeed * 0.75);
+      p.wobbleAmp = dynamics.wobbleAmp * (p.type === 'core' ? 0.65 : 1);
+      p.wobbleRadius = dynamics.wobbleRadius;
+    }
+  }
 
   // drawing
   function draw() {
@@ -526,8 +581,9 @@ export function renderOrbit(container, data, options) {
       const p = items[i];
       const x = Math.cos(p.angle) * p.radius;
       const y = Math.sin(p.angle) * p.radius;
-      const weight = p.type === 'core' ? 500 : 400;
-      ctx.font = weight + ' ' + (11 + p.size * 8) + 'px "Cormorant Garamond", serif';
+      const weight = p.type === 'core' ? 600 : 400;
+      const fontSize = p.type === 'core' ? 15 + p.size * 9 : 11 + p.size * 5;
+      ctx.font = weight + ' ' + fontSize + 'px "Cormorant Garamond", serif';
       ctx.fillStyle = withAlpha(
         p.type === 'core' ? theme.text : theme.muted,
         p.opacity * (p.type === 'core' ? 1 : 0.6)
@@ -545,7 +601,7 @@ export function renderOrbit(container, data, options) {
     for (let i = 0; i < items.length; i++) {
       const p = items[i];
       p.angle = p.angle + p.speed;
-      p.radius = p.baseRadius + Math.sin(p.angle * 2) * p.wobbleAmp * 12;
+      p.radius = p.baseRadius + Math.sin(p.angle * 2) * p.wobbleAmp * (p.wobbleRadius || 12);
     }
   }
 
@@ -563,7 +619,7 @@ export function renderOrbit(container, data, options) {
     size = fitCanvas(canvas, ctx, container);
     width = size.width;
     height = size.height;
-    items = buildOrbitItems(sourcePool, count, motion, intensity, width, height);
+    items = buildOrbitItems(sourcePool, motion, intensity, width, height);
   }
 
   resizeObserver = new ResizeObserver(onResize);
@@ -574,18 +630,36 @@ export function renderOrbit(container, data, options) {
   // cleanup
   container._vortexInstance = {
     cleanup: function () {
-      if (animationId) {
-        cancelAnimationFrame(animationId);
-      }
+      cancelAnimationFrame(animationId);
       animationId = null;
-      if (resizeObserver) {
-        resizeObserver.disconnect();
-      }
-      resizeObserver = null;
+      resizeObserver.disconnect();
     }
   };
 
   return {
+    updateOptions: function (newOptions) {
+      newOptions = newOptions || {};
+      const prevDensity = density;
+
+      if (newOptions.density !== undefined) {
+        density = newOptions.density;
+      }
+      if (newOptions.motion !== undefined) {
+        motion = newOptions.motion;
+      }
+      if (newOptions.intensity !== undefined) {
+        intensity = newOptions.intensity;
+      }
+      if (newOptions.paused === true || newOptions.paused === false) {
+        paused = newOptions.paused;
+      }
+
+      if (density !== prevDensity) {
+        syncDensity();
+      } else {
+        applyDynamics();
+      }
+    },
     pause: function () {
       paused = true;
     },
@@ -599,11 +673,9 @@ export function renderOrbit(container, data, options) {
 }
 
 export function destroyVortex(container) {
-  if (container && container._vortexInstance) {
+  if (container._vortexInstance) {
     container._vortexInstance.cleanup();
     container._vortexInstance = null;
   }
-  if (container) {
-    container.innerHTML = '';
-  }
+  container.innerHTML = '';
 }

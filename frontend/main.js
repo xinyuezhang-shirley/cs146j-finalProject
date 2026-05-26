@@ -1,167 +1,98 @@
-// imports
+// main.js
+// connects the form, controls, theme buttons, visualization, and save button
+
 import { analyzeText, saveWork } from './helperJS/apiClient.js';
 import { SAMPLE_PASSAGE } from './helperJS/textProcessing.js';
 import { renderEchoMode, destroyEchoMode } from './helperJS/controls.js';
 import { applyTheme, initTheme, syncThemeUI } from './helperJS/theme.js';
 
-// state
 const state = {
   theme: 'night',
   mode: 'network',
   intensity: 40,
   density: 60,
   motion: 40,
-  paused: false,
   analysis: null,
-  renderer: null,
-  saving: false
+  renderer: null
 };
 
 // page elements
-const siteNav = document.querySelector('.site-nav');
-const enterBtn = document.getElementById('enter-btn');
+const nav = document.querySelector('.site-nav');
+const enterBtn = document.querySelector('#enter-btn');
 
-const composeForm = document.getElementById('compose-form');
-const passageInput = document.getElementById('text-input');
-const charCounter = document.getElementById('char-counter');
-const composeError = document.getElementById('compose-error');
-const transformStatus = document.getElementById('transform-status');
-const sampleBtn = document.getElementById('sample-btn');
-const transformBtn = document.getElementById('transform-btn');
-const newTextBtn = document.getElementById('new-text-btn');
+const form = document.querySelector('#compose-form');
+const textInput = document.querySelector('#text-input');
+const charCounter = document.querySelector('#char-counter');
+const composeError = document.querySelector('#compose-error');
+const transformStatus = document.querySelector('#transform-status');
+const sampleBtn = document.querySelector('#sample-btn');
+const transformBtn = document.querySelector('#transform-btn');
 
-const themeNightBtn = document.getElementById('theme-night');
-const themePaperBtn = document.getElementById('theme-paper');
+const themeNightBtn = document.querySelector('#theme-night');
+const themePaperBtn = document.querySelector('#theme-paper');
 
-const modeSelect = document.getElementById('mode-select');
-const modeStatus = document.getElementById('mode-status');
-const intensitySlider = document.getElementById('intensity-slider');
-const densitySlider = document.getElementById('density-slider');
-const motionSlider = document.getElementById('motion-slider');
-const intensityValue = document.getElementById('intensity-value');
-const densityValue = document.getElementById('density-value');
-const motionValue = document.getElementById('motion-value');
+const intensitySlider = document.querySelector('#intensity-slider');
+const densitySlider = document.querySelector('#density-slider');
+const motionSlider = document.querySelector('#motion-slider');
 
-const studioBackBtn = document.getElementById('studio-back-btn');
-const studioModeBtns = document.querySelectorAll('.studio-mode-btn');
-const studioCanvas = document.getElementById('studio-canvas');
-const asciiOutput = document.getElementById('ascii-output');
-const studioHint = document.getElementById('studio-hint');
-const fieldSummary = document.getElementById('field-summary');
-const saveBtn = document.getElementById('save-btn');
-const saveStatus = document.getElementById('save-status');
+const intensityValue = document.querySelector('#intensity-value');
+const densityValue = document.querySelector('#density-value');
+const motionValue = document.querySelector('#motion-value');
 
-// Screen-managing functions
+const modeButtons = document.querySelectorAll('.studio-mode-btn');
+const studioCanvas = document.querySelector('#studio-canvas');
+const asciiOutput = document.querySelector('#ascii-output');
+const fieldSummary = document.querySelector('#field-summary');
+const saveBtn = document.querySelector('#save-btn');
+const saveStatus = document.querySelector('#save-status');
+const backBtn = document.querySelector('#studio-back-btn');
 
-//directly jumps to sections needed
+// small helpers
 function scrollToSection(id) {
-  const section = document.getElementById(id);
-  if (!section) {
-    return;
-  }
-  section.scrollIntoView({ behavior: 'smooth' });
+  document.querySelector('#' + id).scrollIntoView({ behavior: 'smooth' });
 }
 
-//adds a transparent background for the nav bar if scrolled down
-function updateNavOnScroll() {
-  siteNav.classList.toggle('is-scrolled', window.scrollY > 40);
+function updateNav() {
+  nav.classList.toggle('is-scrolled', window.scrollY > 40);
 }
 
-
-function syncStudioModeButtons() {
-  studioModeBtns.forEach(function (btn) {
-    const active = btn.dataset.mode === state.mode;
-    btn.classList.toggle('is-active', active);
-    btn.setAttribute('aria-selected', String(active));
-    btn.tabIndex = active ? 0 : -1;
-  });
+function updateCounter() {
+  const length = textInput.value.length;
+  charCounter.textContent = length + ' / 1200';
 }
 
-function selectMode(mode) {
-  state.mode = mode;
-  modeSelect.value = mode;
-  syncStudioModeButtons();
-  modeStatus.textContent = 'Visualization mode set to ' + mode + '.';
-  if (state.analysis) {
-    updateFieldSummary(state.analysis);
-    renderCurrentMode();
-  }
-}
-
-// theme works even before the user transforms text
-function setTheme(theme) {
-  if (theme !== 'night' && theme !== 'paper') {
-    return;
-  }
-  state.theme = applyTheme(theme);
-  syncThemeUI(state.theme, themeNightBtn, themePaperBtn);
-  if (state.analysis) {
-    renderCurrentMode();
-  }
-}
-
-
-function updateCharCounter() {
-  const len = passageInput.value.length;
-  charCounter.textContent = String(len).padStart(4, '0') + ' / 1200';
-}
-
-function showFormError(message) {
+function showError(message) {
   composeError.textContent = message;
   composeError.hidden = false;
-  passageInput.setAttribute('aria-invalid', 'true');
 }
 
-function clearFormError() {
+function clearError() {
   composeError.textContent = '';
   composeError.hidden = true;
-  passageInput.removeAttribute('aria-invalid');
 }
 
-function setLoading(loading) {
-  transformBtn.disabled = loading;
-  studioCanvas.classList.toggle('is-loading', loading);
-  if (loading) {
-    transformStatus.textContent = 'Transforming your passage…';
-  }
+function updateSliderLabels() {
+  intensityValue.textContent = state.intensity;
+  densityValue.textContent = state.density;
+  motionValue.textContent = state.motion;
 }
 
-//--------------------------------------------------------
-//update slide bar value
-function updateControlLabels() {
-  intensityValue.textContent = String(state.intensity);
-  densityValue.textContent = String(state.density);
-  motionValue.textContent = String(state.motion);
-}
-
-// update the graph when sliders move
-function applyLiveControls() {
-  updateControlLabels();
-  if (!state.analysis) {
-    return;
-  }
-
-  const opts = {
+function getOptions() {
+  return {
     intensity: state.intensity / 100,
     density: state.density / 100,
-    motion: state.motion / 100,
-    paused: state.paused
+    motion: state.motion / 100
   };
-
-  updateFieldSummary(state.analysis);
-
-  if (state.renderer && state.renderer.updateOptions) {
-    state.renderer.updateOptions(opts);
-    if (state.mode === 'soup' || state.mode === 'vortex' || state.mode === 'ascii') {
-      return;
-    }
-  }
-
-  renderCurrentMode();
 }
 
-function updateFieldSummary(analysis) {
-  if (!analysis) {
+function setTheme(theme) {
+  state.theme = applyTheme(theme);
+  syncThemeUI(state.theme, themeNightBtn, themePaperBtn);
+}
+
+// updates the small text line above the visualization
+function updateSummary() {
+  if (!state.analysis) {
     fieldSummary.innerHTML =
       '<span class="field-summary__line field-summary__line--idle">' +
         '<span class="field-summary__meta">awaiting passage</span>' +
@@ -171,40 +102,41 @@ function updateFieldSummary(analysis) {
     return;
   }
 
-  const words = analysis.words ? analysis.words : [];
-  const relatedWords = analysis.relatedWords ? analysis.relatedWords : [];
-  const core = words.slice(0, 6).map(function (w) { return w.text; });
-  const related = relatedWords.slice(0, 8).map(function (w) { return w.text; });
-  const mode = state.mode;
+  const words = state.analysis.words || [];
+  const relatedWords = state.analysis.relatedWords || [];
+  const core = words.slice(0, 6).map(function (word) {
+    return word.text;
+  });
+  const related = relatedWords.slice(0, 8).map(function (word) {
+    return word.text;
+  });
 
-  let coreLine;
+  let html;
+
   if (core.length) {
-    coreLine =
+    html =
       '<span class="field-summary__line">' +
-        '<span class="field-summary__meta">' + mode + ' mode</span>' +
+        '<span class="field-summary__meta">' + state.mode + ' mode</span>' +
         '<span class="field-summary__sep" aria-hidden="true"> ✦ </span>' +
         '<span class="field-summary__meta">core words:</span>' +
         '<span class="field-summary__words">' + core.join(', ') + '</span>' +
       '</span>';
   } else {
-    coreLine =
+    html =
       '<span class="field-summary__line">' +
-        '<span class="field-summary__meta">' + mode + ' mode</span>' +
+        '<span class="field-summary__meta">' + state.mode + ' mode</span>' +
       '</span>';
   }
 
-  let relatedLine = '';
   if (related.length) {
-    relatedLine =
+    html +=
       '<span class="field-summary__line">' +
         '<span class="field-summary__meta">related echoes:</span>' +
         '<span class="field-summary__words">' + related.join(', ') + '</span>' +
       '</span>';
   }
 
-  fieldSummary.innerHTML =
-    coreLine +
-    relatedLine +
+  html +=
     '<span class="field-summary__line field-summary__line--controls">' +
       '<span class="field-summary__meta">density ' + state.density + '</span>' +
       '<span class="field-summary__sep" aria-hidden="true"> • </span>' +
@@ -212,159 +144,158 @@ function updateFieldSummary(analysis) {
       '<span class="field-summary__sep" aria-hidden="true"> • </span>' +
       '<span class="field-summary__meta">intensity ' + state.intensity + '</span>' +
     '</span>';
+
+  fieldSummary.innerHTML = html;
 }
 
-// textarea → API → visualization
-async function handleFormSubmit(event) {
-  event.preventDefault();
+// updates the mode buttons to be active or not based on the current selection
+function updateModeButtons() {
+  modeButtons.forEach(function (button) {
+    const isActive = button.dataset.mode === state.mode;
+    button.classList.toggle('is-active', isActive);
+    button.setAttribute('aria-selected', isActive);
+  });
+}
 
-  const formData = new FormData(composeForm);
-  const text = String(formData.get('text') || '').trim();
+// clears the current visualization for any mode selected
+function clearVisualization() {
+  destroyEchoMode({
+    container: studioCanvas,
+    asciiEl: asciiOutput,
+    renderer: state.renderer
+  });
 
-  if (!text) {
-    showFormError('Please enter some text before transforming.');
-    passageInput.focus();
-    transformStatus.textContent = 'Transform cancelled — passage is empty.';
-    transformStatus.dataset.status = 'error';
-    return;
-  }
-
-  clearFormError();
-  setLoading(true);
-
-  try {
-    destroyCurrentRenderer();
-
-    const analysis = await analyzeText(text, {
-      density: state.density / 100
-    });
-
-    state.analysis = analysis;
-    transformStatus.textContent = 'Transform complete. Echo field generated.';
-    transformStatus.dataset.status = 'success';
-    updateFieldSummary(analysis);
-    saveBtn.disabled = false;
-
-    scrollToSection('studio');
-    setTimeout(function () {
-      renderCurrentMode();
-    }, 300);
-  } catch (error) {
-    showFormError('Something went wrong while transforming. Please try again.');
-    transformStatus.textContent = 'Transform failed. Check your connection and try again.';
-    transformStatus.dataset.status = 'error';
-  } finally {
-    setLoading(false);
-  }
+  state.renderer = null;
 }
 
 function renderCurrentMode() {
   if (!state.analysis) {
     return;
   }
-
-  const opts = {
-    intensity: state.intensity / 100,
-    density: state.density / 100,
-    motion: state.motion / 100,
-    paused: state.paused
-  };
-
-  studioHint.hidden = state.mode === 'ascii';
-
+  // renders the current mode based on the selected mode
   state.renderer = renderEchoMode({
     container: studioCanvas,
     asciiEl: asciiOutput,
     mode: state.mode,
     data: state.analysis,
-    options: opts,
+    options: getOptions(),
     renderer: state.renderer
   });
 
-  updateFieldSummary(state.analysis);
+  updateSummary();
 }
 
-function destroyCurrentRenderer() {
-  destroyEchoMode({
-    container: studioCanvas,
-    asciiEl: asciiOutput,
-    renderer: state.renderer
-  });
-  state.renderer = null;
-}
+// main function that calls text transform and then renders the current mode
+async function transformText(event) {
+  event.preventDefault(); // prevents the form from submitting
 
-async function handleSave() {
-  if (!state.analysis) {
-    saveStatus.textContent = 'Transform text before saving.';
-    saveStatus.dataset.status = 'error';
+  const text = textInput.value.trim(); // gets the text from the input field
+
+  if (!text) {
+    showError('Please enter some text before transforming.');
     return;
   }
 
-  state.saving = true;
-  saveBtn.disabled = true;
-  saveStatus.textContent = 'Saving to gallery…';
+  clearError();
+  transformBtn.disabled = true;
+  transformStatus.textContent = 'Transforming...';
+  studioCanvas.classList.add('is-loading');
 
-  const analysis = state.analysis;
-  let originalText = passageInput.value.trim();
-  if (!originalText && analysis.text) {
-    originalText = analysis.text;
+  try {
+    clearVisualization();
+
+    // calls the analyzeText function to analyze the text
+    const analysis = await analyzeText(text, {
+      density: state.density / 100
+    });
+
+    //async finishes, then updates the state and renders the current mode
+    state.analysis = analysis;
+    transformStatus.textContent = 'Transform complete.';
+    saveBtn.disabled = false;
+
+    updateSummary();
+    scrollToSection('studio');
+    renderCurrentMode();
+
+  } catch (error) {
+    console.log(error);
+    showError('Something went wrong while transforming.');
+    transformStatus.textContent = 'Transform failed.';
   }
+
+  transformBtn.disabled = false;
+  studioCanvas.classList.remove('is-loading');
+}
+
+// updates the controls for the current mode based on the slider values
+function updateControls() {
+  state.intensity = Number(intensitySlider.value);
+  state.density = Number(densitySlider.value);
+  state.motion = Number(motionSlider.value);
+
+  updateSliderLabels();
+  updateSummary();
+
+  if (state.analysis) {
+    const opts = getOptions();
+
+    if (state.renderer && state.renderer.updateOptions) {
+      state.renderer.updateOptions(opts);
+      return;
+    }
+
+    renderCurrentMode();
+  }
+}
+
+// saves the current work to the gallery
+async function saveCurrentWork() {
+  if (!state.analysis) {
+    saveStatus.textContent = 'Transform text before saving.';
+    return;
+  }
+
+  saveBtn.disabled = true;
+  saveStatus.textContent = 'Saving...';
 
   try {
     await saveWork({
-      originalText: originalText,
-      coreWords: analysis.words ? analysis.words : [],
-      relatedWords: analysis.relatedWords ? analysis.relatedWords : [],
-      particles: analysis.particles ? analysis.particles : [],
+      originalText: textInput.value.trim(),
+      coreWords: state.analysis.words || [],
+      relatedWords: state.analysis.relatedWords || [],
+      particles: state.analysis.particles || [],
       mode: state.mode,
       density: state.density / 100,
       motion: state.motion / 100,
       intensity: state.intensity / 100,
-      options: {
-        density: state.density / 100,
-        motion: state.motion / 100,
-        intensity: state.intensity / 100,
-        paused: state.paused
-      },
-      analysisData: JSON.parse(JSON.stringify(analysis))
+      options: getOptions(),
+      analysisData: state.analysis
     });
+
     saveStatus.textContent = 'Saved to Gallery.';
-    saveStatus.dataset.status = 'success';
   } catch (error) {
-    const message = error.message ? error.message : 'Failed to save work.';
-    saveStatus.textContent = message;
-    saveStatus.dataset.status = 'error';
-  } finally {
-    state.saving = false;
-    saveBtn.disabled = false;
+    console.log(error);
+    saveStatus.textContent = 'Failed to save.';
   }
+
+  saveBtn.disabled = false;
 }
 
-function debounce(fn, ms) {
-  let timer;
-  return function () {
-    const args = arguments;
-    clearTimeout(timer);
-    timer = setTimeout(function () {
-      fn.apply(null, args);
-    }, ms);
-  };
-}
+// event listeners for inputs, buttons, and theme selection
 
-// event listeners
-
-passageInput.addEventListener('input', function () {
-  updateCharCounter();
-  clearFormError();
+textInput.addEventListener('input', function () {
+  updateCounter();
+  clearError();
 });
 
 sampleBtn.addEventListener('click', function () {
-  passageInput.value = SAMPLE_PASSAGE;
-  updateCharCounter();
-  clearFormError();
+  textInput.value = SAMPLE_PASSAGE;
+  updateCounter();
+  clearError();
 });
 
-composeForm.addEventListener('submit', handleFormSubmit);
+form.addEventListener('submit', transformText);
 
 themeNightBtn.addEventListener('click', function () {
   setTheme('night');
@@ -374,70 +305,34 @@ themePaperBtn.addEventListener('click', function () {
   setTheme('paper');
 });
 
-modeSelect.addEventListener('change', function (e) {
-  state.mode = e.target.value;
-  syncStudioModeButtons();
-  modeStatus.textContent = 'Visualization mode set to ' + state.mode + '.';
-  if (state.analysis) {
+intensitySlider.addEventListener('input', updateControls);
+densitySlider.addEventListener('input', updateControls);
+motionSlider.addEventListener('input', updateControls);
+
+modeButtons.forEach(function (button) {
+  button.addEventListener('click', function () {
+    state.mode = button.dataset.mode;
+    updateModeButtons();
     renderCurrentMode();
-  }
-});
-
-intensitySlider.addEventListener('input', function (e) {
-  state.intensity = Number(e.target.value);
-  e.target.setAttribute('aria-valuenow', String(state.intensity));
-  applyLiveControls();
-});
-
-densitySlider.addEventListener('input', function (e) {
-  state.density = Number(e.target.value);
-  e.target.setAttribute('aria-valuenow', String(state.density));
-  applyLiveControls();
-});
-
-motionSlider.addEventListener('input', function (e) {
-  state.motion = Number(e.target.value);
-  e.target.setAttribute('aria-valuenow', String(state.motion));
-  applyLiveControls();
-});
-
-newTextBtn.addEventListener('click', function () {
-  scrollToSection('compose');
-});
-
-studioBackBtn.addEventListener('click', function () {
-  scrollToSection('compose');
-});
-
-enterBtn.addEventListener('click', function (e) {
-  e.preventDefault();
-  scrollToSection('compose');
-});
-
-studioModeBtns.forEach(function (btn) {
-  btn.addEventListener('click', function () {
-    selectMode(btn.dataset.mode);
-  });
-  btn.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      selectMode(btn.dataset.mode);
-    }
   });
 });
 
-window.addEventListener('scroll', updateNavOnScroll);
-window.addEventListener('resize', debounce(function () {
-  if (state.analysis) {
-    renderCurrentMode();
-  }
-}, 250));
+enterBtn.addEventListener('click', function (event) {
+  event.preventDefault();
+  scrollToSection('compose');
+});
 
-saveBtn.addEventListener('click', handleSave);
+backBtn.addEventListener('click', function () {
+  scrollToSection('compose');
+});
+
+saveBtn.addEventListener('click', saveCurrentWork);
+window.addEventListener('scroll', updateNav);
 
 // startup
-updateCharCounter();
-updateControlLabels();
 setTheme(initTheme());
-updateNavOnScroll();
+updateCounter();
+updateSliderLabels();
+updateSummary();
+updateNav();
 saveBtn.disabled = true;

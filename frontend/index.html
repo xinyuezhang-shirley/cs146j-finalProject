@@ -44,12 +44,9 @@
     <section id="compose" class="section section--compose" aria-labelledby="compose-heading">
       <h2 id="compose-heading" class="visually-hidden">Compose your passage</h2>
 
+      <!-- form for transforming and for gathering information-->
       <form id="compose-form" class="compose-form" novalidate>
         <div class="compose-frame">
-          <div class="compose-frame__bracket compose-frame__bracket--tl" aria-hidden="true"></div>
-          <div class="compose-frame__bracket compose-frame__bracket--tr" aria-hidden="true"></div>
-          <div class="compose-frame__bracket compose-frame__bracket--bl" aria-hidden="true"></div>
-          <div class="compose-frame__bracket compose-frame__bracket--br" aria-hidden="true"></div>
 
           <div class="compose-frame__header">
             <span>COMPOSE</span>
@@ -68,6 +65,7 @@
             aria-describedby="char-counter compose-error"
           ></textarea>
 
+          <!-- error message for accessibilityfor the form -->
           <p id="compose-error" class="form-error" role="alert" hidden></p>
           <p id="transform-status" class="form-status" aria-live="polite"></p>
 
@@ -87,18 +85,6 @@
             <button type="button" class="control-toggle__option is-active" id="theme-night" data-value="night" aria-pressed="true">Moonlight</button>
             <button type="button" class="control-toggle__option" id="theme-paper" data-value="paper" aria-pressed="false">PAPER</button>
           </div>
-        </div>
-
-        <div class="control-group">
-          <label for="mode-select" class="control-label">Mode</label>
-          <select id="mode-select" class="control-select" aria-describedby="mode-status">
-            <option value="network">NETWORK</option>
-            <option value="soup">SOUP</option>
-            <option value="ascii">ASCII</option>
-            <option value="vortex">VORTEX</option>
-            <option value="orbit">ORBIT</option>
-          </select>
-          <span id="mode-status" class="visually-hidden" aria-live="polite"></span>
         </div>
 
         <div class="control-group">
@@ -122,30 +108,20 @@
     <section id="studio" class="section section--studio" aria-labelledby="studio-heading">
       <h2 id="studio-heading" class="visually-hidden">Visualization studio</h2>
 
-      <div class="studio-nav">
-        <button type="button" class="studio-nav__back" id="new-text-btn">← NEW TEXT</button>
-        <div class="studio-nav__modes" role="tablist" aria-label="Visualization modes">
-          <button type="button" class="studio-mode-btn is-active" role="tab" id="tab-network" aria-selected="true" aria-controls="studio-canvas" data-mode="network">NETWORK</button>
-          <button type="button" class="studio-mode-btn" role="tab" id="tab-soup" aria-selected="false" aria-controls="studio-canvas" data-mode="soup">SOUP</button>
-          <button type="button" class="studio-mode-btn" role="tab" id="tab-ascii" aria-selected="false" aria-controls="studio-canvas" data-mode="ascii">ASCII</button>
-          <button type="button" class="studio-mode-btn" role="tab" id="tab-vortex" aria-selected="false" aria-controls="studio-canvas" data-mode="vortex">VORTEX</button>
-          <button type="button" class="studio-mode-btn" role="tab" id="tab-orbit" aria-selected="false" aria-controls="studio-canvas" data-mode="orbit">ORBIT</button>
-        </div>
-        <button type="button" class="studio-save-btn" id="save-btn" disabled>Save to Gallery</button>
-      </div>
-
       <p id="save-status" class="studio-save-status" aria-live="polite"></p>
 
       <div class="visualization-shell">
-        <p id="field-summary" class="field-summary" aria-live="polite">
-          <span class="field-summary__line field-summary__line--idle">
-            <span class="field-summary__meta">awaiting passage</span>
-            <span class="field-summary__sep" aria-hidden="true"> ✦ </span>
-            <span class="field-summary__words">enter text and transform to begin</span>
-          </span>
-        </p>
+        <div id="field-summary" class="field-summary" aria-live="polite"></div>
 
         <div class="studio-canvas-wrap">
+          <div class="studio-mode-bar" role="tablist" aria-label="Visualization modes">
+            <button type="button" class="studio-mode-btn is-active" role="tab" id="tab-network" aria-selected="true" aria-controls="studio-canvas" data-mode="network">NETWORK</button>
+            <button type="button" class="studio-mode-btn" role="tab" id="tab-soup" aria-selected="false" aria-controls="studio-canvas" data-mode="soup">SOUP</button>
+            <button type="button" class="studio-mode-btn" role="tab" id="tab-ascii" aria-selected="false" aria-controls="studio-canvas" data-mode="ascii">ASCII</button>
+            <button type="button" class="studio-mode-btn" role="tab" id="tab-vortex" aria-selected="false" aria-controls="studio-canvas" data-mode="vortex">VORTEX</button>
+            <button type="button" class="studio-mode-btn" role="tab" id="tab-orbit" aria-selected="false" aria-controls="studio-canvas" data-mode="orbit">ORBIT</button>
+          </div>
+
           <div
             id="studio-canvas"
             class="studio-canvas"
@@ -157,16 +133,14 @@
         </div>
       </div>
 
-      <p class="studio-hint" id="studio-hint">scroll to zoom · drag to explore</p>
+      <div class="studio-actions">
+        <button type="button" class="studio-save-btn" id="save-btn" disabled>Save to Gallery</button>
+      </div>
 
       <button type="button" class="studio-side-nav" id="studio-back-btn" aria-label="Back to compose">‹</button>
     </section>
 
   </main>
-
-  <footer class="site-footer site-footer--studio">
-    <p>ECHO · <a href="gallery.html">Gallery</a> · <a href="about.html">About</a></p>
-  </footer>
 
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script type="module" src="main.js"></script>

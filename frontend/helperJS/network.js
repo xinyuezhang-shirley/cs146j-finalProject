@@ -1,4 +1,4 @@
-// D3 force graph — draggable nodes, hover highlight, pan/zoom on empty space.
+// D3 force graph — draggable nodes, hover highlight, pan/zoom on empty space
 
 import { densityToCount, getContainerSize } from './controls.js';
 
@@ -6,32 +6,15 @@ let simulation = null;
 let zoomBehavior = null;
 let resizeObserver = null;
 
-//renders the network visualization
 export function renderNetwork(container, data, options) {
-  if (!options) {
-    options = {};
-  }
-
-  if (typeof d3 === 'undefined') {
-    throw new Error('D3.js is not loaded. Check the CDN script in index.html.');
-  }
-  if (!container) {
-    throw new Error('Network render failed: missing container element.');
-  }
-
-  // setup -> destroys the existing network if it exists, then sets up the network with the data and options
   destroyNetwork(container);
 
-  let density = options.density !== undefined ? options.density : 0.6;
-  let motion = options.motion !== undefined ? options.motion : 0.4;
-  let intensity = options.intensity !== undefined ? options.intensity : 0.4;
-  if (density < 0) density = 0;
-  if (density > 1) density = 1;
-  if (motion < 0) motion = 0;
-  if (motion > 1) motion = 1;
-  if (intensity < 0) intensity = 0;
-  if (intensity > 1) intensity = 1;
-  const paused = options.paused ? options.paused : false;
+  options = options || {};
+
+  let density = options.density || 0.6;
+  let motion = options.motion || 0.4;
+  let intensity = options.intensity || 0.4;
+  let paused = options.paused || false;
   const maxNodes = densityToCount(density, 8, 40);
   const graphData = prepareGraphData(data, maxNodes);
 
@@ -68,12 +51,7 @@ export function renderNetwork(container, data, options) {
   zoomBehavior = d3.zoom()
     .scaleExtent([0.4, 3])
     .filter(function (event) {
-      if (event.type === 'wheel') {
-        return true;
-      }
-      if (event.type.indexOf('touch') === 0) {
-        return isBackgroundTarget(event.target, svg.node());
-      }
+      if (event.type === 'wheel') return true;
       return isBackgroundTarget(event.target, svg.node());
     })
     .on('zoom', function (event) {
@@ -133,10 +111,7 @@ export function renderNetwork(container, data, options) {
       return d.radius;
     })
     .attr('opacity', function (d) {
-      if (d.opacity !== undefined) {
-        return d.opacity;
-      }
-      return 1;
+      return d.opacity || 1;
     });
 
   node.append('text')
@@ -151,10 +126,7 @@ export function renderNetwork(container, data, options) {
       return (9 + Math.min(score, 1) * 4) + 'px';
     })
     .attr('opacity', function (d) {
-      if (d.opacity !== undefined) {
-        return d.opacity;
-      }
-      return 1;
+      return d.opacity || 1;
     })
     .text(function (d) {
       return d.id;
@@ -270,14 +242,10 @@ export function renderNetwork(container, data, options) {
 
   return {
     pause: function () {
-      if (simulation) {
-        simulation.stop();
-      }
+      simulation.stop();
     },
     resume: function () {
-      if (simulation) {
-        simulation.alpha(0.3).restart();
-      }
+      simulation.alpha(0.3).restart();
     },
     destroy: function () {
       destroyNetwork(container);
@@ -285,19 +253,12 @@ export function renderNetwork(container, data, options) {
   };
 }
 
-// check whether the user clicked empty space instead of a node
+// true when the click landed on empty space, not a node or link
 function isBackgroundTarget(target, svgEl) {
-  if (!target) {
-    return true;
-  }
   let el = target;
   while (el && el !== svgEl) {
-    if (el.classList && el.classList.contains('network-node')) {
-      return false;
-    }
-    if (el.classList && el.classList.contains('network-link')) {
-      return false;
-    }
+    if (el.classList && el.classList.contains('network-node')) return false;
+    if (el.classList && el.classList.contains('network-link')) return false;
     el = el.parentNode;
   }
   return true;
@@ -305,9 +266,7 @@ function isBackgroundTarget(target, svgEl) {
 
 // build the word nodes and links for the D3 graph
 function prepareGraphData(data, maxNodes) {
-  if (maxNodes === undefined) {
-    maxNodes = 20;
-  }
+  maxNodes = maxNodes || 20;
 
   const words = data.words || [];
   const relatedWords = data.relatedWords || [];
@@ -549,9 +508,8 @@ function clearHighlight(node, link) {
   link.classed('is-dimmed', false).classed('is-active', false);
 }
 
-// cleanup
 export function destroyNetwork(container) {
-  if (container && container._driftInterval) {
+  if (container._driftInterval) {
     clearInterval(container._driftInterval);
     container._driftInterval = null;
   }
@@ -564,12 +522,5 @@ export function destroyNetwork(container) {
     simulation = null;
   }
   zoomBehavior = null;
-  if (!container) {
-    return;
-  }
-  if (typeof d3 !== 'undefined') {
-    d3.select(container).selectAll('*').remove();
-  } else {
-    container.innerHTML = '';
-  }
+  d3.select(container).selectAll('*').remove();
 }

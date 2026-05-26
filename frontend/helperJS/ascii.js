@@ -2,9 +2,6 @@
 
 // remove any canvas/svg left in the studio container
 function clearVisualization(container) {
-  if (!container) {
-    return;
-  }
   const extras = container.querySelectorAll('canvas, svg');
   for (let i = 0; i < extras.length; i++) {
     extras[i].remove();
@@ -41,26 +38,9 @@ function getWords(data, count) {
 
 // turn slider values into layout settings for this mode
 function getAsciiParams(options) {
-  let density = options.density;
-  if (density === undefined) {
-    density = 0.6;
-  }
-  if (density < 0) density = 0;
-  if (density > 1) density = 1;
-
-  let motion = options.motion;
-  if (motion === undefined) {
-    motion = 0.4;
-  }
-  if (motion < 0) motion = 0;
-  if (motion > 1) motion = 1;
-
-  let intensity = options.intensity;
-  if (intensity === undefined) {
-    intensity = 0.4;
-  }
-  if (intensity < 0) intensity = 0;
-  if (intensity > 1) intensity = 1;
+  const density = options.density || 0.6;
+  const motion = options.motion || 0.4;
+  const intensity = options.intensity || 0.4;
 
   return {
     density: density,
@@ -184,33 +164,20 @@ function buildAsciiFrame(data, params, tick) {
 }
 
 export function renderAscii(container, asciiEl, data, options) {
-  if (!options) {
-    options = {};
-  }
-
   destroyAscii(container, asciiEl);
 
-  if (!asciiEl) {
-    throw new Error('ASCII render failed: missing #ascii-output element.');
-  }
+  options = options || {};
 
-  // setup
   clearVisualization(container);
   container.style.display = 'none';
   asciiEl.hidden = false;
 
   let simOptions = {
-    density: options.density !== undefined ? options.density : 0.6,
-    motion: options.motion !== undefined ? options.motion : 0.4,
-    intensity: options.intensity !== undefined ? options.intensity : 0.4,
-    paused: options.paused ? options.paused : false
+    density: options.density || 0.6,
+    motion: options.motion || 0.4,
+    intensity: options.intensity || 0.4,
+    paused: options.paused || false
   };
-  if (simOptions.density < 0) simOptions.density = 0;
-  if (simOptions.density > 1) simOptions.density = 1;
-  if (simOptions.motion < 0) simOptions.motion = 0;
-  if (simOptions.motion > 1) simOptions.motion = 1;
-  if (simOptions.intensity < 0) simOptions.intensity = 0;
-  if (simOptions.intensity > 1) simOptions.intensity = 1;
 
   let params = getAsciiParams(simOptions);
   let tick = 0;
@@ -239,27 +206,15 @@ export function renderAscii(container, asciiEl, data, options) {
 
   const api = {
     updateOptions: function (newOptions) {
-      if (!newOptions) {
-        newOptions = {};
-      }
-      if (newOptions.density !== undefined) {
-        simOptions.density = newOptions.density;
-        if (simOptions.density < 0) simOptions.density = 0;
-        if (simOptions.density > 1) simOptions.density = 1;
-      }
-      if (newOptions.motion !== undefined) {
-        simOptions.motion = newOptions.motion;
-        if (simOptions.motion < 0) simOptions.motion = 0;
-        if (simOptions.motion > 1) simOptions.motion = 1;
-      }
-      if (newOptions.intensity !== undefined) {
-        simOptions.intensity = newOptions.intensity;
-        if (simOptions.intensity < 0) simOptions.intensity = 0;
-        if (simOptions.intensity > 1) simOptions.intensity = 1;
-      }
-      if (newOptions.paused !== undefined) {
+      newOptions = newOptions || {};
+
+      if (newOptions.density) simOptions.density = newOptions.density;
+      if (newOptions.motion) simOptions.motion = newOptions.motion;
+      if (newOptions.intensity) simOptions.intensity = newOptions.intensity;
+      if (newOptions.paused === true || newOptions.paused === false) {
         simOptions.paused = newOptions.paused;
       }
+
       params = getAsciiParams(simOptions);
       renderFrame();
     },
@@ -274,35 +229,24 @@ export function renderAscii(container, asciiEl, data, options) {
     }
   };
 
-  // cleanup
-  if (container) {
-    container._asciiInstance = {
-      cleanup: function () {
-        if (animationId) {
-          cancelAnimationFrame(animationId);
-        }
-        animationId = null;
-      }
-    };
-  }
+  container._asciiInstance = {
+    cleanup: function () {
+      cancelAnimationFrame(animationId);
+      animationId = null;
+    }
+  };
 
   return api;
 }
 
 export function destroyAscii(container, asciiEl) {
-  if (container && container._asciiInstance) {
+  if (container._asciiInstance) {
     container._asciiInstance.cleanup();
     container._asciiInstance = null;
   }
 
   clearVisualization(container);
-
-  if (container) {
-    container.style.display = '';
-  }
-
-  if (asciiEl) {
-    asciiEl.hidden = true;
-    asciiEl.textContent = '';
-  }
+  container.style.display = '';
+  asciiEl.hidden = true;
+  asciiEl.textContent = '';
 }

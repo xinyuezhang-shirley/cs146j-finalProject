@@ -13,10 +13,8 @@ const ZOOM_WHEEL_SENSITIVITY = 0.0012;
 
 // how many words to show based on the density slider
 function targetParticleCount(density) {
-  let d = density;
-  if (d < 0) d = 0;
-  if (d > 1) d = 1;
-  return Math.round(DENSITY_MIN + d * (DENSITY_MAX - DENSITY_MIN));
+  density = density || 0.6;
+  return Math.round(DENSITY_MIN + density * (DENSITY_MAX - DENSITY_MIN));
 }
 
 // get word templates from the analysis data
@@ -45,19 +43,8 @@ function buildSourcePool(data) {
 
 // turn slider values into movement settings
 function getPhysics(options) {
-  let motion = options.motion;
-  if (motion === undefined) {
-    motion = 0.4;
-  }
-  if (motion < 0) motion = 0;
-  if (motion > 1) motion = 1;
-
-  let intensity = options.intensity;
-  if (intensity === undefined) {
-    intensity = 0.4;
-  }
-  if (intensity < 0) intensity = 0;
-  if (intensity > 1) intensity = 1;
+  const motion = options.motion || 0.4;
+  const intensity = options.intensity || 0.4;
 
   return {
     baseSpeed: 0.3 + motion * 4.5,
@@ -88,8 +75,8 @@ function spawnParticle(template, width, height, physics) {
   return {
     text: template.text,
     type: template.type || 'core',
-    size: template.size !== undefined ? template.size : 1,
-    opacity: template.opacity !== undefined ? template.opacity : 0.7,
+    size: template.size || 1,
+    opacity: template.opacity || 0.7,
     x: Math.random() * width,
     y: Math.random() * height,
     vx: (Math.random() - 0.5) * speed,
@@ -142,26 +129,18 @@ function findNearestParticle(particles, x, y, radius) {
 }
 
 export function renderSoup(container, data, options) {
-  if (!options) {
-    options = {};
-  }
-
   destroySoup(container);
 
-  // setup
-  const sourcePool = buildSourcePool(data);
+  options = options || {};
+
   let simOptions = {
-    density: options.density !== undefined ? options.density : 0.6,
-    motion: options.motion !== undefined ? options.motion : 0.4,
-    intensity: options.intensity !== undefined ? options.intensity : 0.4,
-    paused: options.paused ? options.paused : false
+    density: options.density || 0.6,
+    motion: options.motion || 0.4,
+    intensity: options.intensity || 0.4,
+    paused: options.paused || false
   };
-  if (simOptions.density < 0) simOptions.density = 0;
-  if (simOptions.density > 1) simOptions.density = 1;
-  if (simOptions.motion < 0) simOptions.motion = 0;
-  if (simOptions.motion > 1) simOptions.motion = 1;
-  if (simOptions.intensity < 0) simOptions.intensity = 0;
-  if (simOptions.intensity > 1) simOptions.intensity = 1;
+
+  const sourcePool = buildSourcePool(data);
 
   let size = getContainerSize(container);
   let width = size.width;
@@ -472,27 +451,13 @@ export function renderSoup(container, data, options) {
 
   const api = {
     updateOptions: function (newOptions) {
-      if (!newOptions) {
-        newOptions = {};
-      }
+      newOptions = newOptions || {};
       const prevDensity = simOptions.density;
 
-      if (newOptions.density !== undefined) {
-        simOptions.density = newOptions.density;
-        if (simOptions.density < 0) simOptions.density = 0;
-        if (simOptions.density > 1) simOptions.density = 1;
-      }
-      if (newOptions.motion !== undefined) {
-        simOptions.motion = newOptions.motion;
-        if (simOptions.motion < 0) simOptions.motion = 0;
-        if (simOptions.motion > 1) simOptions.motion = 1;
-      }
-      if (newOptions.intensity !== undefined) {
-        simOptions.intensity = newOptions.intensity;
-        if (simOptions.intensity < 0) simOptions.intensity = 0;
-        if (simOptions.intensity > 1) simOptions.intensity = 1;
-      }
-      if (newOptions.paused !== undefined) {
+      if (newOptions.density) simOptions.density = newOptions.density;
+      if (newOptions.motion) simOptions.motion = newOptions.motion;
+      if (newOptions.intensity) simOptions.intensity = newOptions.intensity;
+      if (newOptions.paused === true || newOptions.paused === false) {
         simOptions.paused = newOptions.paused;
       }
 
@@ -516,9 +481,7 @@ export function renderSoup(container, data, options) {
   // cleanup
   container._soupInstance = {
     cleanup: function () {
-      if (animationId) {
-        cancelAnimationFrame(animationId);
-      }
+      cancelAnimationFrame(animationId);
       animationId = null;
       resizeObserver.disconnect();
       canvas.removeEventListener('pointerdown', onPointerDown);
@@ -535,11 +498,9 @@ export function renderSoup(container, data, options) {
 }
 
 export function destroySoup(container) {
-  if (container && container._soupInstance) {
+  if (container._soupInstance) {
     container._soupInstance.cleanup();
     container._soupInstance = null;
   }
-  if (container) {
-    container.innerHTML = '';
-  }
+  container.innerHTML = '';
 }

@@ -1,4 +1,7 @@
 /* about.css */
+/* styles for about.html — split photo layout, project copy, and poem tabs */
+
+/* page-level colors and fonts — overrides the shared night/paper theme */
 body.about-page {
   --paper: #f3f1eb;
   --ink: #121212;
@@ -16,6 +19,7 @@ body.about-page {
   color: var(--ink);
 }
 
+/* nav links on the about page use ink instead of the studio muted colors */
 body.about-page .site-nav__logo,
 body.about-page .site-nav__link[aria-current="page"],
 body.about-page .site-nav__link:hover {
@@ -26,7 +30,7 @@ body.about-page .site-nav__link {
   color: var(--soft-ink);
 }
 
-/* about nav bar, changes opacity when scrolling */
+/* about nav bar — frosted background, gets more opaque when scrolling */
 .about-nav {
   background: color-mix(in srgb, var(--paper) 82%, transparent);
   backdrop-filter: blur(8px);
@@ -37,7 +41,7 @@ body.about-page .site-nav__link {
   background: color-mix(in srgb, var(--paper) 96%, transparent);
 }
 
-/* page split: image on the left, writing on the right */
+/* page split — 50% image, 50% text on desktop */
 .about-layout {
   display: grid;
   grid-template-columns: 1fr;
@@ -56,9 +60,9 @@ body.about-page .site-nav__link {
   background-repeat: no-repeat;
 }
 
+/* right column — description copy; poem is positioned into the image band */
 .about-text {
   position: relative;
-  z-index: 2;
   padding:
     calc(var(--nav-height) + 1rem)
     clamp(1rem, 2.5vw, 1.75rem)
@@ -71,6 +75,7 @@ body.about-page .site-nav__link {
   gap: 1rem;
 }
 
+/* width helpers for the main text blocks */
 .project-copy,
 .copy-column,
 .project-heading,
@@ -94,20 +99,17 @@ body.about-page .site-nav__link {
   gap: var(--section-gap);
 }
 
-/* project copy should not be covered by the poem tabs */
-.project-copy {
-  z-index: 3;
-}
-
+/* title block at the top of the about text */
 .project-heading {
   gap: 0.85rem;
 }
 
 .about-copy,
-.mode-list{
+.mode-list {
   gap: var(--small-gap);
 }
 
+/* small uppercase labels like "introduction" and "modes" */
 .intro-label,
 .section-label {
   margin: 0;
@@ -132,6 +134,7 @@ body.about-page .site-nav__link {
   font-style: italic;
 }
 
+/* body paragraphs in the about section and mode descriptions */
 .about-copy p,
 .mode-intro,
 .mode-card p {
@@ -147,6 +150,7 @@ body.about-page .site-nav__link {
   line-height: 1.52;
 }
 
+/* italic pull-quote style line in the project description */
 .soft-emphasis {
   font-family: var(--display-serif);
   font-size: clamp(1.05rem, 1.65vw, 1.2rem);
@@ -155,10 +159,11 @@ body.about-page .site-nav__link {
   font-style: italic;
 }
 
-.mode-intro{
+.mode-intro {
   color: var(--soft-ink);
 }
 
+/* list of visualization mode cards — network, soup, ascii, etc. */
 .mode-cards {
   gap: clamp(0.85rem, 1.5vh, 1.05rem);
 }
@@ -179,31 +184,33 @@ body.about-page .site-nav__link {
   color: var(--ink);
 }
 
-/* poem tabs: each line has a slightly different width/offset */
+/* poem tabs — floating lines over the image on desktop */
 .poem-tabs {
-  --poem-gap: clamp(0.2rem, 3vh, 2rem);
+  --poem-gap: 0.65rem;
 
   display: flex;
   flex-direction: column;
   gap: var(--poem-gap);
   min-width: 0;
-  padding-bottom: clamp(2.5rem, 6vh, 4rem);
+  padding-bottom: 2rem;
 }
 
 .poem-line {
+  --line-width: 82%;
   --pull-left: 0rem;
-  --line-width: 78%;
 
+  margin: 0;
+  margin-left: var(--pull-left);
+  padding: 0.45rem 1.15rem 0.5rem 0.9rem;
   width: var(--line-width);
-  margin: 0 0 0 var(--pull-left);
-  padding: 0.35rem clamp(0.85rem, 2vw, 1.75rem) 0.45rem;
+  box-sizing: border-box;
 
   background: var(--paper);
   color: var(--ink);
 
   font-family: var(--body-serif);
   font-size: clamp(0.88rem, 1.45vw, 1.08rem);
-  line-height: 1.28;
+  line-height: 1.32;
   letter-spacing: 0.005em;
 }
 
@@ -215,100 +222,139 @@ body.about-page .site-nav__link {
   color: var(--soft-ink);
 }
 
-.poem-line:nth-child(6n + 1) { --line-width: 82%; }
-.poem-line:nth-child(6n + 2) { --line-width: 74%; }
-.poem-line:nth-child(6n + 3) { --line-width: 88%; }
-.poem-line:nth-child(6n + 4) { --line-width: 70%; }
-.poem-line:nth-child(6n + 5) { --line-width: 92%; }
-.poem-line:nth-child(6n + 6) { --line-width: 76%; }
-
-/* tablet and desktop: image becomes sticky, poem overlaps toward it */
+/* desktop — 50/50 spread; poem on the right half of the image */
 @media (min-width: 640px) {
   .about-layout {
-    grid-template-columns: minmax(0, 0.55fr) minmax(0, 0.45fr);
+    grid-template-columns: 1fr 1fr;
+    align-items: stretch;
   }
 
+  /* stretch to full row height so the image covers every poem line */
   .about-photo {
     position: sticky;
     top: 0;
     grid-column: 1;
     grid-row: 1;
-    height: 100vh;
     min-height: 100vh;
   }
 
   .about-text {
     grid-column: 2;
-    padding-left: clamp(1.5rem, 3vw, 2.5rem);
-    padding-right: clamp(1rem, 2vw, 1.5rem);
+    grid-row: 1;
+    padding:
+      calc(var(--nav-height) + 2rem)
+      clamp(2rem, 3vw, 2.5rem)
+      4rem
+      clamp(3rem, 5vw, 4rem);
   }
 
   .about-stack {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
-    align-items: start;
+    width: 100%;
   }
 
-  .poem-tabs,
-  .project-copy {
-    grid-column: 1;
-    grid-row: 1;
-  }
-
+  /*
+   * poem band sits on the right half of the image and may spill
+   * past the 50% fold into the text column padding — never into copy.
+   */
   .poem-tabs {
-    z-index: 2;
-    width: 52%;
-    max-width: 52%;
+    --poem-protrude: clamp(2.5rem, 6vw, 6rem);
+
+    position: absolute;
+    top: calc(var(--nav-height) + 2rem);
+    left: calc(-25vw - 2rem);
+    width: calc(24vw + var(--poem-protrude));
+    max-width: calc(21rem + var(--poem-protrude));
+    padding-bottom: 3rem;
+    overflow: visible;
   }
 
+  /* copy stays above any protruding poem tabs */
   .project-copy {
-    z-index: 1;
-  }
-
-  .poem-line:nth-child(6n + 1) { --pull-left: clamp(-14vw, -8rem, -3rem); --line-width: 88%; }
-  .poem-line:nth-child(6n + 2) { --pull-left: clamp(-20vw, -12rem, -5rem); --line-width: 80%; }
-  .poem-line:nth-child(6n + 3) { --pull-left: clamp(-26vw, -16rem, -7rem); --line-width: 92%; }
-  .poem-line:nth-child(6n + 4) { --pull-left: clamp(-18vw, -10rem, -4rem); --line-width: 76%; }
-  .poem-line:nth-child(6n + 5) { --pull-left: clamp(-30vw, -18rem, -8rem); --line-width: 96%; }
-  .poem-line:nth-child(6n + 6) { --pull-left: clamp(-22vw, -13rem, -5.5rem); --line-width: 82%; }
-}
-
-/* all the media queries are for the sake of looking good on different screens */
-/* tablet: image is wider, poem overlaps to the left */
-@media (min-width: 900px) {
-  .about-layout {
-    grid-template-columns: minmax(0, 0.57fr) minmax(0, 0.43fr);
-  }
-
-  .about-text {
-    padding-left: clamp(2rem, 3.5vw, 3rem);
-    padding-right: clamp(1rem, 2vw, 1.75rem);
+    position: relative;
+    z-index: 2;
+    max-width: 640px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
   }
 
   .poem-line {
-    font-size: clamp(0.9rem, 1.35vw, 1.05rem);
+    font-size: 0.95rem;
+    max-width: calc(100% + var(--poem-protrude));
   }
 
-  .poem-line:nth-child(6n + 1) { --pull-left: clamp(-28vw, -20rem, -9rem); --line-width: 96%; }
-  .poem-line:nth-child(6n + 2) { --pull-left: clamp(-36vw, -26rem, -12rem); --line-width: 86%; }
-  .poem-line:nth-child(6n + 3) { --pull-left: clamp(-44vw, -32rem, -15rem); --line-width: 100%; }
-  .poem-line:nth-child(6n + 4) { --pull-left: clamp(-32vw, -22rem, -10rem); --line-width: 82%; }
-  .poem-line:nth-child(6n + 5) { --pull-left: clamp(-48vw, -36rem, -17rem); --line-width: 104%; }
-  .poem-line:nth-child(6n + 6) { --pull-left: clamp(-38vw, -28rem, -13rem); --line-width: 88%; }
-}
-
-/* desktop: image is wider, poem overlaps to the left */
-@media (min-width: 1200px) {
-  .about-layout {
-    grid-template-columns: minmax(0, 0.58fr) minmax(0, 0.42fr);
+  /* scattered tabs — uneven widths/offsets; some spill off the image edge */
+  .poem-line:nth-child(6n + 1) {
+    --line-width: 94%;
+    --pull-left: -2.25rem;
   }
 
-  .poem-line:nth-child(6n + 3) { --pull-left: clamp(-50vw, -38rem, -18rem); }
-  .poem-line:nth-child(6n + 5) { --pull-left: clamp(-54vw, -42rem, -20rem); }
+  .poem-line:nth-child(6n + 2) {
+    --line-width: 56%;
+    --pull-left: 3rem;
+  }
+
+  .poem-line:nth-child(6n + 3) {
+    --line-width: 118%;
+    --pull-left: 1.5rem;
+  }
+
+  .poem-line:nth-child(6n + 4) {
+    --line-width: 48%;
+    --pull-left: 4.75rem;
+  }
+
+  .poem-line:nth-child(6n + 5) {
+    --line-width: 126%;
+    --pull-left: 0.25rem;
+  }
+
+  .poem-line:nth-child(6n + 6) {
+    --line-width: 62%;
+    --pull-left: 2.5rem;
+  }
 }
 
-/* mobile: image is taller, poem overlaps to the right */
+@media (min-width: 900px) {
+  .poem-tabs {
+    --poem-protrude: clamp(3rem, 7vw, 7rem);
+    left: calc(-25vw - 2.5rem);
+    width: calc(25vw + var(--poem-protrude));
+    max-width: calc(23rem + var(--poem-protrude));
+  }
+
+  .poem-line:nth-child(6n + 1) {
+    --line-width: 98%;
+    --pull-left: -3rem;
+  }
+
+  .poem-line:nth-child(6n + 2) {
+    --line-width: 52%;
+    --pull-left: 3.75rem;
+  }
+
+  .poem-line:nth-child(6n + 3) {
+    --line-width: 122%;
+    --pull-left: 2rem;
+  }
+
+  .poem-line:nth-child(6n + 4) {
+    --line-width: 44%;
+    --pull-left: 5.5rem;
+  }
+
+  .poem-line:nth-child(6n + 5) {
+    --line-width: 132%;
+    --pull-left: 0.5rem;
+  }
+
+  .poem-line:nth-child(6n + 6) {
+    --line-width: 58%;
+    --pull-left: 3.25rem;
+  }
+}
+
+/* mobile — photo on top, poem and copy stack normally */
 @media (max-width: 639px) {
   .about-photo {
     min-height: clamp(44vh, 50vh, 56vh);
@@ -328,26 +374,25 @@ body.about-page .site-nav__link {
   .project-title {
     font-size: clamp(1.95rem, 7vw, 2.65rem);
   }
+
   .poem-line {
     width: 100%;
-    margin-left: 0 !important;
   }
 }
 
-/* tablet and desktop: image becomes sticky, poem overlaps toward it */
+/* shorter screens — tighten vertical gap between poem lines */
 @media (max-width: 900px) {
   .poem-tabs {
-    --poem-gap: clamp(0.2rem, 2vh, 1.25rem);
+    --poem-gap: 0.5rem;
   }
 }
 
 @media (max-height: 760px) {
   .poem-tabs {
-    --poem-gap: clamp(0.15rem, 2vh, 1rem);
+    --poem-gap: 0.4rem;
   }
 
   .poem-line {
     padding-block: 0.28rem 0.35rem;
   }
 }
-
