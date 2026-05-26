@@ -175,6 +175,8 @@ function clearVisualization() {
   state.renderer = null;
 }
 
+
+//render visual
 function renderCurrentMode() {
   if (!state.analysis) {
     return;
@@ -188,11 +190,11 @@ function renderCurrentMode() {
     options: getOptions(),
     renderer: state.renderer
   });
-
   updateSummary();
 }
 
-// main function that calls text transform and then renders the current mode
+
+/***------- main function that calls text transform and then renders the current mode---***/
 async function transformText(event) {
   event.preventDefault(); // prevents the form from submitting
 
@@ -202,7 +204,6 @@ async function transformText(event) {
     showError('Please enter some text before transforming.');
     return;
   }
-
   clearError();
   transformBtn.disabled = true;
   transformStatus.textContent = 'Transforming...';
@@ -235,6 +236,7 @@ async function transformText(event) {
   studioCanvas.classList.remove('is-loading');
 }
 
+
 // updates the controls for the current mode based on the slider values
 function updateControls() {
   state.intensity = Number(intensitySlider.value);
@@ -246,7 +248,6 @@ function updateControls() {
 
   if (state.analysis) {
     const opts = getOptions();
-
     if (state.renderer && state.renderer.updateOptions) {
       state.renderer.updateOptions(opts);
       return;
@@ -289,8 +290,8 @@ async function saveCurrentWork() {
   saveBtn.disabled = false;
 }
 
-// event listeners for inputs, buttons, and theme selection
 
+/***-------------event listeners for inputs, buttons, and theme selection----------***/
 textInput.addEventListener('input', function () {
   updateCounter();
   clearError();
