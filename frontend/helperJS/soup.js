@@ -1,4 +1,4 @@
-// Soup — drifting words with cursor push and wheel zoom.
+// Soup — drifting words with cursor push and wheel zoom
 
 import { getThemeColors, withAlpha } from './theme.js';
 import { getContainerSize, fitCanvas } from './controls.js';

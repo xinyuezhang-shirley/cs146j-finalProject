@@ -48,7 +48,7 @@ body.about-page .site-nav__link {
   min-height: 100vh;
 }
 
-/* left column — background photo */
+/* left column — background photo (cover crop, anchored left) */
 .about-photo {
   position: relative;
   min-height: clamp(40vh, 48vh, 54vh);
@@ -56,7 +56,7 @@ body.about-page .site-nav__link {
   background-color: #1a1917;
   background-image: var(--about-image);
   background-size: cover;
-  background-position: center center;
+  background-position: left center;
   background-repeat: no-repeat;
 }
 
@@ -229,16 +229,30 @@ body.about-page .site-nav__link {
     align-items: stretch;
   }
 
-  /* stretch to full row height so the image covers every poem line */
+  /*
+   * fixed left panel — always fills the viewport height.
+   * cover + left anchor keeps aspect ratio; excess crops off-screen left/right.
+   */
   .about-photo {
-    position: sticky;
+    position: fixed;
     top: 0;
+    left: 0;
+    z-index: 0;
+
+    width: 50%;
+    height: 100vh;
+    max-height: 100vh;
+
     grid-column: 1;
     grid-row: 1;
-    min-height: 100vh;
+
+    background-size: cover;
+    background-position: left center;
   }
 
   .about-text {
+    position: relative;
+    z-index: 1;
     grid-column: 2;
     grid-row: 1;
     padding:
