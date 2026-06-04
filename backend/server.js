@@ -23,24 +23,7 @@ const {
 
 const app = express();
 const PORT = 3000;
-
-const LOCAL_DEV_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
-
-app.use(
-  cors({
-    origin(origin, callback) {
-      if (!origin || LOCAL_DEV_ORIGIN.test(origin)) {
-        callback(null, origin || true);
-      } else {
-        callback(null, false);
-      }
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Accept'],
-    optionsSuccessStatus: 204
-  })
-);
-
+app.use(cors());
 
 initDb();
 app.use(express.json({ limit: '2mb' }));
