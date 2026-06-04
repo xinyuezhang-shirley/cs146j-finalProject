@@ -1,62 +1,32 @@
 # ECHO — Computational Text Art Studio
 
-A minimalist text art studio where users paste prose and transform it into interactive word-based visualizations. Saved pieces persist in **Supabase** through Echo's Express API.
+A minimalist text art studio where users paste prose and transform it into interactive word-based visualizations. Saved pieces persist in a local **SQLite** database through Echo's Express API.
 
-## Project Structure
+## Stack
+
+- **Backend** — Node.js, Express, SQLite (`better-sqlite3`)
+- **Frontend** — static HTML/CSS/JS (D3 and other libs via CDN)
+- **Text enrichment** — Datamuse API (always on during server analysis)
+
+## Project structure
 
 ```
 ├── backend/
-│   ├── server.js              # Express API + gallery routes
+│   ├── server.js              # Express API + static frontend
 │   ├── lib/
-│   │   ├── analyzeText.js     # word extraction, links, Datamuse (optional)
-│   │   └── artData.js         # payloads for each visualization mode
-│   ├── sql/echo_works.sql
-│   └── .env.example
+│   │   ├── analyzeText.js     # word extraction, links, Datamuse
+│   │   ├── artData.js         # visualization payloads
+│   │   └── db.js              # SQLite gallery storage
+│   └── data/                  # echo.db (created on first run)
 ├── frontend/
 │   ├── index.html             # Studio
-│   ├── main.js                # compose → transform → render
 │   ├── gallery.html / gallery.js
-│   ├── styles.css
-│   └── helperJS/
-│       ├── apiClient.js       # fetch /api/*
-│       ├── textProcessing.js  # offline fallback
-│       ├── controls.js        # sliders, canvas sizing, render dispatch
-│       ├── network.js / soup.js / ascii.js / vortex.js
-│       └── theme.js
+│   ├── main.js
+│   └── helperJS/              # renderers, apiClient, local fallback
+└── package.json               # runs backend via npm scripts
 ```
 
-## Pages
-
-| Page | Path | Description |
-|------|------|-------------|
-| Studio | `index.html` | Compose, transform, visualize, **Save to Gallery** |
-| Gallery | `gallery.html` | Saved works from Supabase + sticky preview |
-| About | `about.html` | Project overview |
-
-## Setup
-
-### 1. Supabase
-
-1. Create a [Supabase](https://supabase.com) project.
-2. In the SQL Editor, run `backend/sql/echo_works.sql`.
-3. Copy **Project URL** and **service role key** (Settings → API).  
-   **Never** put the service role key in frontend code.
-
-### 2. Environment variables
-
-```bash
-cp backend/.env.example backend/.env
-```
-
-Edit `backend/.env`:
-
-```env
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-PORT=3000
-```
-
-### 3. Install & run
+## Run
 
 From the project root:
 
@@ -67,64 +37,40 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000)
 
-The frontend calls Echo's API under `/api/*` via `apiClient.js`. Gallery save/load requires Supabase env vars on the server. Text analysis can still fall back locally if the API is offline.
+The server listens on port **3000** and stores gallery works in `backend/data/echo.db`. No config files or secrets are required.
+
+If you open the frontend from Live Server on another port, `apiClient.js` still talks to the backend on `localhost:3000` (CORS is enabled for local dev origins).
+
+## Pages
+
+| Page | Path | Description |
+|------|------|-------------|
+| Studio | `index.html` | Compose, transform, visualize, save to gallery |
+| Gallery | `gallery.html` | Saved works + preview |
+| About | `about.html` | Project overview |
 
 ## Gallery flow
 
-1. **Studio** — enter text, click **TRANSFORM**, adjust mode/sliders.
-2. Click **Save to Gallery** (enabled after a successful transform).
-3. **Gallery** — fetches works from `GET /api/works`.
-4. Select a card — bottom preview regenerates the visualization from saved data.
-5. **Delete** removes a work via `DELETE /api/works/:id`.
+1. **Studio** — enter text, click **TRANSFORM**, adjust mode and sliders.
+2. **Save to Gallery** (after a successful transform).
+3. **Gallery** — `GET /api/works` lists saved pieces.
+4. Select a card to preview; **Delete** removes via `DELETE /api/works/:id`.
 
-## Echo API Routes
+## API routes
 
 | Route | Description |
 |-------|-------------|
-| `POST /api/analyze-text` | Full text analysis |
+| `POST /api/analyze-text` | Full text analysis (Datamuse + local merge) |
 | `POST /api/art/network` | Network art data |
 | `POST /api/art/soup` | Soup art data |
 | `POST /api/art/ascii` | ASCII art data |
 | `POST /api/art/vortex` | Vortex art data |
 | `POST /api/art/orbit` | Orbit art data |
-| `POST /api/works` | Save work to Supabase |
-| `GET /api/works` | List saved works (newest first) |
+| `POST /api/works` | Save work |
+| `GET /api/works` | List works (newest first) |
 | `GET /api/works/:id` | Get one work |
-| `DELETE /api/works/:id` | Delete a work |
-
-### Save work body (POST `/api/works`)
-
-```json
-{
-  "originalText": "your passage",
-  "coreWords": [],
-  "relatedWords": [],
-  "particles": [],
-  "mode": "network",
-  "density": 0.6,
-  "motion": 0.4,
-  "intensity": 0.4,
-  "options": {},
-  "analysisData": {}
-}
-```
-
-## Configuration
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SUPABASE_URL` | — | Supabase project URL (backend only) |
-| `SUPABASE_SERVICE_ROLE_KEY` | — | Service role key (backend only) |
-| `USE_DATAMUSE` | `false` | Global Datamuse enrichment |
-| `NETWORK_DATAMUSE` | `true` | Datamuse for network mode only |
-| `PORT` | `3000` | Server port |
-
-## Deployment notes
-
-- Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in your host's environment (Render, Railway, etc.).
-- Run the SQL migration on your Supabase project before going live.
-- Serve the app with `npm start` from the repo root (runs `backend/server.js`).
-- Keep the service role key server-side only; the browser never talks to Supabase directly.
+| `PUT /api/works/:id` | Update sliders/options |
+| `DELETE /api/works/:id` | Delete work |
 
 ## License
 

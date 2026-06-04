@@ -16,7 +16,7 @@ export function renderNetwork(container, data, options) {
   let intensity = options.intensity || 0.4;
   let paused = options.paused || false;
   const maxNodes = densityToCount(density, 8, 40);
-  const graphData = prepareGraphData(data, maxNodes);
+  const graphData = getGraphData(data, maxNodes, options);
 
   if (!graphData.nodes.length) {
     container.innerHTML = '<p class="network-empty">Not enough words to draw a network.</p>';
@@ -47,18 +47,99 @@ export function renderNetwork(container, data, options) {
 
   const g = svg.append('g');
 
-  // pan/zoom on empty space — node clicks still work
+  // zoom via wheel; pan via window drag on empty space (keeps node drag separate)
   zoomBehavior = d3.zoom()
     .scaleExtent([0.4, 3])
     .filter(function (event) {
-      if (event.type === 'wheel') return true;
-      return isBackgroundTarget(event.target, svg.node());
+      return event.type === 'wheel';
     })
     .on('zoom', function (event) {
       g.attr('transform', event.transform);
     });
 
   svg.call(zoomBehavior);
+
+  function endNetworkPan() {
+    window.removeEventListener('mousemove', onNetworkPanMove);
+    window.removeEventListener('mouseup', onNetworkPanEnd);
+    window.removeEventListener('touchmove', onNetworkPanMove);
+    window.removeEventListener('touchend', onNetworkPanEnd);
+    window.removeEventListener('touchcancel', onNetworkPanEnd);
+  }
+
+  const panState = { active: false, t0: null, x0: 0, y0: 0 };
+
+  function onNetworkPanMove(event) {
+    if (!panState.active) {
+      return;
+    }
+    const clientX = event.clientX;
+    const clientY = event.clientY;
+    if (clientX === undefined) {
+      return;
+    }
+    d3.select(svg.node()).call(
+      zoomBehavior.transform,
+      panState.t0.translate(clientX - panState.x0, clientY - panState.y0)
+    );
+  }
+
+  function onNetworkPanEnd() {
+    panState.active = false;
+    endNetworkPan();
+  }
+
+  function onNetworkPanStart(event) {
+    if (event.button !== undefined && event.button !== 0) {
+      return;
+    }
+    if (!isBackgroundTarget(event.target, svg.node())) {
+      return;
+    }
+    event.preventDefault();
+    panState.active = true;
+    panState.t0 = d3.zoomTransform(svg.node());
+    panState.x0 = event.clientX;
+    panState.y0 = event.clientY;
+    window.addEventListener('mousemove', onNetworkPanMove);
+    window.addEventListener('mouseup', onNetworkPanEnd);
+    window.addEventListener('touchmove', onNetworkPanMove, { passive: false });
+    window.addEventListener('touchend', onNetworkPanEnd);
+    window.addEventListener('touchcancel', onNetworkPanEnd);
+  }
+
+  svg.on('mousedown.netpan', onNetworkPanStart);
+  svg.on('touchstart.netpan', onNetworkPanStart);
+
+  container._networkPanCleanup = function () {
+    svg.on('mousedown.netpan', null);
+    svg.on('touchstart.netpan', null);
+    endNetworkPan();
+  };
+
+  const wheelSurface = container.closest('.studio-canvas-wrap') || container;
+  if (container._networkWheelHandler) {
+    wheelSurface.removeEventListener('wheel', container._networkWheelHandler, { passive: false });
+  }
+  container._networkWheelHandler = function (event) {
+    const svgNode = svg.node();
+    const canvasRect = container.getBoundingClientRect();
+    const overCanvas =
+      event.clientX >= canvasRect.left &&
+      event.clientX <= canvasRect.right &&
+      event.clientY >= canvasRect.top &&
+      event.clientY <= canvasRect.bottom;
+
+    if (!svgNode || !overCanvas) {
+      return;
+    }
+
+    event.preventDefault();
+    const scaleFactor = Math.pow(2, -event.deltaY * 0.002);
+    const point = d3.pointer(event, svgNode);
+    d3.select(svgNode).call(zoomBehavior.scaleBy, scaleFactor, point);
+  };
+  wheelSurface.addEventListener('wheel', container._networkWheelHandler, { passive: false });
 
   // invisible background so dragging empty space pans the graph
   g.append('rect')
@@ -237,8 +318,7 @@ export function renderNetwork(container, data, options) {
   }
 
   resizeObserver = new ResizeObserver(handleResize);
-  const wrap = container.closest('.studio-canvas-wrap') || container;
-  resizeObserver.observe(wrap);
+  resizeObserver.observe(container);
 
   return {
     pause: function () {
@@ -264,7 +344,47 @@ function isBackgroundTarget(target, svgEl) {
   return true;
 }
 
-// build the word nodes and links for the D3 graph
+function cloneServerGraph(data) {
+  const nodes = (data.nodes || []).map(function (node) {
+    return { ...node };
+  });
+  const links = (data.links || []).map(function (link) {
+    return { ...link };
+  });
+
+  nodes.forEach(function (node) {
+    if (!node.connections) {
+      node.connections = links.filter(function (link) {
+        return link.source === node.id || link.target === node.id;
+      });
+    }
+  });
+
+  return { nodes, links };
+}
+
+function getGraphData(data, maxNodes, options) {
+  const useServerGraph =
+    data._source === 'api' &&
+    !options.preferLocalGraph &&
+    Array.isArray(data.nodes) &&
+    data.nodes.length > 0;
+
+  if (useServerGraph) {
+    return cloneServerGraph(data);
+  }
+
+  const analysis = {
+    words: data.words || [],
+    relatedWords: data.relatedWords || [],
+    text: data.text || '',
+    links: data.cooccurrenceLinks || data.links || []
+  };
+
+  return prepareGraphData(analysis, maxNodes);
+}
+
+// build the word nodes and links for the D3 graph (local fallback path)
 function prepareGraphData(data, maxNodes) {
   maxNodes = maxNodes || 20;
 
@@ -441,6 +561,29 @@ function prepareGraphData(data, maxNodes) {
   return { nodes: nodes, links: links };
 }
 
+export function buildLocalNetworkArt(analysis, options) {
+  const density = options.density ?? 0.6;
+  const maxNodes = options.maxNodes ?? densityToCount(density, 8, 40);
+  const graph = prepareGraphData(analysis, maxNodes);
+  const particles = analysis.particles || [];
+  const d = Math.min(1, Math.max(0, density));
+  const count = Math.round(6 + d * (Math.max(6, particles.length) - 6));
+
+  return {
+    mode: 'network',
+    nodes: graph.nodes,
+    links: graph.links,
+    particles: particles.slice(0, Math.max(6, count)),
+    text: analysis.text,
+    words: analysis.words,
+    relatedWords: analysis.relatedWords,
+    frequency: analysis.frequency,
+    cooccurrenceLinks: analysis.links,
+    meta: { ...analysis.meta, source: 'local' },
+    _source: 'local'
+  };
+}
+
 // let the user drag a node and pin it while dragging
 function drag(sim, rootG) {
   return d3.drag()
@@ -509,6 +652,16 @@ function clearHighlight(node, link) {
 }
 
 export function destroyNetwork(container) {
+  const wheelSurface = container.closest('.studio-canvas-wrap') || container;
+  if (container._networkWheelHandler) {
+    wheelSurface.removeEventListener('wheel', container._networkWheelHandler);
+    container._networkWheelHandler = null;
+  }
+  if (container._networkPanCleanup) {
+    container._networkPanCleanup();
+    container._networkPanCleanup = null;
+  }
+
   if (container._driftInterval) {
     clearInterval(container._driftInterval);
     container._driftInterval = null;

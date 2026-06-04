@@ -110,8 +110,7 @@ function makeParticles(wordList, density = 1) {
 }
 
 
-// main function used to locally analyze text when the server is offline
-// basically return all the forms that the words can take
+// main function when the server is offline — same shape as the API, but no related words
 export function analyzeTextLocally(text, density = 1) {
   const cleanWords = getWords(text);
   const counts = countWords(cleanWords);

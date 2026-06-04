@@ -7,11 +7,15 @@
     "start": "node server.js",
     "dev": "node server.js"
   },
-  "keywords": ["text-art", "api", "cs146j"],
+  "keywords": [
+    "text-art",
+    "api",
+    "cs146j"
+  ],
   "license": "MIT",
   "dependencies": {
-    "@supabase/supabase-js": "^2.49.8",
-    "dotenv": "^16.5.0",
+    "better-sqlite3": "^11.10.0",
+    "cors": "^2.8.6",
     "express": "^4.21.2"
   }
 }

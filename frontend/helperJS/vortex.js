@@ -5,6 +5,7 @@ import { getContainerSize, fitCanvas } from './controls.js';
 
 const DENSITY_MIN = 8;
 const DENSITY_MAX = 120;
+const VORTEX_DENSITY_MAX = 180;
 const MIN_ZOOM = 0.55;
 const MAX_ZOOM = 2.5;
 const ZOOM_SMOOTH = 0.14;
@@ -13,6 +14,11 @@ const ZOOM_WHEEL_SENSITIVITY = 0.0012;
 function targetParticleCount(density) {
   density = density || 0.6;
   return Math.round(DENSITY_MIN + density * (DENSITY_MAX - DENSITY_MIN));
+}
+
+function targetVortexParticleCount(density) {
+  density = density || 0.6;
+  return Math.round(DENSITY_MIN + density * (VORTEX_DENSITY_MAX - DENSITY_MIN));
 }
 
 // get word templates from the analysis data
@@ -49,13 +55,13 @@ function getVortexParams(options) {
   return {
     motion: motion,
     intensity: intensity,
-    motionScale: 2 + motion * 18,
+    motionScale: 2 + motion * 22,
     wobbleAmount: 3 + intensity * 28,
     wobbleRate: 0.006 + intensity * 0.022,
     depthScale: 0.08 + intensity * 0.28,
     spiralSpacing: 3.5 + intensity * 8,
-    speedBoost: 0.4 + motion * 3.5,
-    vortexSpeed: 4 + motion * 14,
+    speedBoost: 0.4 + motion * 5,
+    vortexSpeed: 4 + motion * 26,
     outerSpread: 40 + intensity * 60
   };
 }
@@ -71,7 +77,9 @@ function createVortexParticle(template, index, params) {
     semanticScore = Math.min(1, template.semanticScore || 0.35);
   }
 
-  const spiralStep = params.spiralSpacing + params.intensity * 3;
+  const count = Math.max(params.particleCount || 80, 1);
+  const densityTighten = Math.min(1, 100 / count);
+  const spiralStep = (params.spiralSpacing + params.intensity * 3) * densityTighten;
 
   return {
     text: template.text,
@@ -79,7 +87,7 @@ function createVortexParticle(template, index, params) {
     semanticScore: semanticScore,
     importance: importance,
     angle: index * 0.42,
-    radius: 18 + index * spiralStep + (1 - semanticScore) * params.outerSpread,
+    radius: 18 + index * spiralStep + (1 - semanticScore) * params.outerSpread * densityTighten,
     z: Math.sin(index * 0.7) * params.intensity * 120,
     size: isCore
       ? Math.min(34, 16 + importance * 8)
@@ -91,9 +99,10 @@ function createVortexParticle(template, index, params) {
 }
 
 function buildVortexParticles(sourcePool, count, params) {
+  const layout = { ...params, particleCount: Math.max(count, 1) };
   const particles = [];
   for (let i = 0; i < count; i++) {
-    particles.push(createVortexParticle(sourcePool[i % sourcePool.length], i, params));
+    particles.push(createVortexParticle(sourcePool[i % sourcePool.length], i, layout));
   }
   return particles;
 }
@@ -106,20 +115,22 @@ function resizeParticleField(particles, count, sourcePool, params) {
     return particles.slice(0, count);
   }
 
+  const layout = { ...params, particleCount: Math.max(count, 1) };
   const next = particles.slice();
   while (next.length < count) {
-    next.push(createVortexParticle(sourcePool[next.length % sourcePool.length], next.length, params));
+    next.push(createVortexParticle(sourcePool[next.length % sourcePool.length], next.length, layout));
   }
   return next;
 }
 
 // recalculate spiral positions when sliders change
 function rebuildParticleLayout(particles, sourcePool, params) {
+  const layout = { ...params, particleCount: Math.max(particles.length, 1) };
   const next = [];
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
     const template = sourcePool[i % sourcePool.length];
-    const fresh = createVortexParticle(template, i, params);
+    const fresh = createVortexParticle(template, i, layout);
     fresh.text = p.text;
     fresh.type = p.type;
     next.push(fresh);
@@ -147,7 +158,7 @@ export function renderVortex(container, data, options) {
   let fitScale = Math.min(width, height) / 520;
   let particles = buildVortexParticles(
     sourcePool,
-    targetParticleCount(simOptions.density),
+    targetVortexParticleCount(simOptions.density),
     params
   );
 
@@ -189,7 +200,7 @@ export function renderVortex(container, data, options) {
   }
 
   function syncDensity() {
-    const count = targetParticleCount(simOptions.density);
+    const count = targetVortexParticleCount(simOptions.density);
     particles = resizeParticleField(particles, count, sourcePool, params);
     particles = rebuildParticleLayout(particles, sourcePool, params);
   }
@@ -251,7 +262,7 @@ export function renderVortex(container, data, options) {
 
     for (let i = 0; i < particles.length; i++) {
       const p = particles[i];
-      const a = p.angle + time * p.speed * params.motionScale * params.vortexSpeed * 0.001;
+      const a = p.angle + time * p.speed * params.motionScale * params.vortexSpeed * 0.00135;
       const spiral =
         p.radius +
         Math.sin(time * params.wobbleRate + p.wobbleSeed + i * 0.4) * params.wobbleAmount;
@@ -341,10 +352,28 @@ export function renderVortex(container, data, options) {
     syncLayoutFromControls();
   }
 
-  canvas.addEventListener('pointerdown', onPointerDown);
-  canvas.addEventListener('pointermove', onPointerMove);
-  canvas.addEventListener('pointerup', onPointerUp);
-  canvas.addEventListener('pointercancel', onPointerUp);
+  function endPointerSession() {
+    window.removeEventListener('pointermove', onPointerMove);
+    window.removeEventListener('pointerup', onPointerUp);
+    window.removeEventListener('pointercancel', onPointerUp);
+  }
+
+  function onPointerDownWrapped(event) {
+    onPointerDown(event);
+    if (!drag.active) {
+      return;
+    }
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+  }
+
+  function onPointerUpWrapped(event) {
+    onPointerUp(event);
+    endPointerSession();
+  }
+
+  canvas.addEventListener('pointerdown', onPointerDownWrapped);
   wheelSurface.addEventListener('wheel', onWheel, { passive: false });
   canvas.addEventListener('dblclick', onDoubleClick);
 
@@ -391,10 +420,8 @@ export function renderVortex(container, data, options) {
       cancelAnimationFrame(animationId);
       animationId = null;
       resizeObserver.disconnect();
-      canvas.removeEventListener('pointerdown', onPointerDown);
-      canvas.removeEventListener('pointermove', onPointerMove);
-      canvas.removeEventListener('pointerup', onPointerUp);
-      canvas.removeEventListener('pointercancel', onPointerUp);
+      canvas.removeEventListener('pointerdown', onPointerDownWrapped);
+      endPointerSession();
       wheelSurface.removeEventListener('wheel', onWheel);
       canvas.removeEventListener('dblclick', onDoubleClick);
     }
@@ -536,7 +563,11 @@ export function renderOrbit(container, data, options) {
   let height = size.height;
 
   const canvas = document.createElement('canvas');
+  canvas.style.touchAction = 'none';
+  canvas.style.cursor = 'grab';
   container.appendChild(canvas);
+
+  const wheelSurface = container.closest('.studio-canvas-wrap') || canvas;
   const ctx = canvas.getContext('2d');
 
   size = fitCanvas(canvas, ctx, container);
@@ -548,6 +579,50 @@ export function renderOrbit(container, data, options) {
 
   let animationId = null;
   let resizeObserver = null;
+
+  const view = {
+    scale: 1,
+    targetScale: 1,
+    offsetX: 0,
+    offsetY: 0,
+    targetOffsetX: 0,
+    targetOffsetY: 0
+  };
+
+  const pan = {
+    active: false,
+    lastX: 0,
+    lastY: 0
+  };
+
+  function updateView() {
+    view.scale = view.scale + (view.targetScale - view.scale) * ZOOM_SMOOTH;
+    view.offsetX = view.offsetX + (view.targetOffsetX - view.offsetX) * ZOOM_SMOOTH;
+    view.offsetY = view.offsetY + (view.targetOffsetY - view.offsetY) * ZOOM_SMOOTH;
+  }
+
+  function resetView() {
+    view.targetScale = 1;
+    view.targetOffsetX = 0;
+    view.targetOffsetY = 0;
+  }
+
+  function zoomAtScreenPoint(sx, sy, deltaY) {
+    const factor = Math.exp(-deltaY * ZOOM_WHEEL_SENSITIVITY);
+    const nextScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, view.targetScale * factor));
+    if (nextScale === view.targetScale) {
+      return;
+    }
+
+    const cx = width / 2;
+    const cy = height / 2;
+    const worldX = (sx - cx - view.targetOffsetX) / view.targetScale;
+    const worldY = (sy - cy - view.targetOffsetY) / view.targetScale;
+
+    view.targetScale = nextScale;
+    view.targetOffsetX = sx - cx - worldX * nextScale;
+    view.targetOffsetY = sy - cy - worldY * nextScale;
+  }
 
   function syncDensity() {
     sourcePool = buildOrbitPool(data, targetParticleCount(density));
@@ -575,7 +650,8 @@ export function renderOrbit(container, data, options) {
     const cy = height / 2;
 
     ctx.save();
-    ctx.translate(cx, cy);
+    ctx.translate(cx + view.offsetX, cy + view.offsetY);
+    ctx.scale(view.scale, view.scale);
 
     for (let i = 0; i < items.length; i++) {
       const p = items[i];
@@ -605,8 +681,46 @@ export function renderOrbit(container, data, options) {
     }
   }
 
+  function onPointerDown(event) {
+    canvas.setPointerCapture(event.pointerId);
+    pan.active = true;
+    pan.lastX = event.clientX;
+    pan.lastY = event.clientY;
+    canvas.style.cursor = 'grabbing';
+  }
+
+  function onPointerMove(event) {
+    if (!pan.active) {
+      return;
+    }
+    view.targetOffsetX = view.targetOffsetX + (event.clientX - pan.lastX);
+    view.targetOffsetY = view.targetOffsetY + (event.clientY - pan.lastY);
+    pan.lastX = event.clientX;
+    pan.lastY = event.clientY;
+  }
+
+  function onPointerUp(event) {
+    if (canvas.hasPointerCapture(event.pointerId)) {
+      canvas.releasePointerCapture(event.pointerId);
+    }
+    pan.active = false;
+    canvas.style.cursor = 'grab';
+  }
+
+  function onWheel(event) {
+    event.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    zoomAtScreenPoint(event.clientX - rect.left, event.clientY - rect.top, event.deltaY);
+  }
+
+  function onDoubleClick(event) {
+    event.preventDefault();
+    resetView();
+  }
+
   // animation loop
   function loop() {
+    updateView();
     if (!paused) {
       update();
     }
@@ -622,6 +736,31 @@ export function renderOrbit(container, data, options) {
     items = buildOrbitItems(sourcePool, motion, intensity, width, height);
   }
 
+  function endPointerSession() {
+    window.removeEventListener('pointermove', onPointerMove);
+    window.removeEventListener('pointerup', onPointerUp);
+    window.removeEventListener('pointercancel', onPointerUp);
+  }
+
+  function onPointerDownWrapped(event) {
+    onPointerDown(event);
+    if (!pan.active) {
+      return;
+    }
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+  }
+
+  function onPointerUpWrapped(event) {
+    onPointerUp(event);
+    endPointerSession();
+  }
+
+  canvas.addEventListener('pointerdown', onPointerDownWrapped);
+  wheelSurface.addEventListener('wheel', onWheel, { passive: false });
+  canvas.addEventListener('dblclick', onDoubleClick);
+
   resizeObserver = new ResizeObserver(onResize);
   resizeObserver.observe(container);
 
@@ -633,6 +772,10 @@ export function renderOrbit(container, data, options) {
       cancelAnimationFrame(animationId);
       animationId = null;
       resizeObserver.disconnect();
+      canvas.removeEventListener('pointerdown', onPointerDownWrapped);
+      endPointerSession();
+      wheelSurface.removeEventListener('wheel', onWheel);
+      canvas.removeEventListener('dblclick', onDoubleClick);
     }
   };
 

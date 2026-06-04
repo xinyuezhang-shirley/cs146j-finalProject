@@ -2,6 +2,9 @@ import { applyTheme, initTheme } from './helperJS/theme.js';
 import { fetchWorks, deleteWork, updateWork } from './helperJS/apiClient.js';
 import { renderEchoMode, destroyEchoMode } from './helperJS/controls.js';
 import { analyzeTextLocally, SAMPLE_PASSAGE } from './helperJS/textProcessing.js';
+import { initSound } from './helperJS/sound.js';
+
+const VALID_MODES = ['network', 'soup', 'ascii', 'vortex', 'orbit'];
 
 // gallery page elements
 
@@ -36,6 +39,7 @@ let density = 60;
 let motion = 40;
 
 applyTheme(initTheme());
+initSound();
 loadGallery();
 
 
@@ -80,9 +84,12 @@ async function loadGallery() {
 
   } catch (error) {
     console.log(error);
-    works = [getDemoWork()];
-    notice.textContent = 'Showing a demo piece — connect the backend to load saved works.';
-    renderGrid();
+    works = [];
+    notice.textContent =
+      error && error.message
+        ? error.message
+        : 'Could not load gallery. Open http://localhost:3000/gallery.html with the backend running.';
+    grid.innerHTML = '<p class="gallery-empty">Could not load saved works.</p>';
   }
 }
 
@@ -139,12 +146,40 @@ function selectWork(work) {
   modal.hidden = false;
   document.body.style.overflow = 'hidden';
 
-  // wait for modal layout so the canvas has real dimensions
+  whenPreviewCanvasReady(renderPreview);
+}
+
+function whenPreviewCanvasReady(callback) {
+  const rect = previewCanvas.getBoundingClientRect();
+  if (rect.width > 8 && rect.height > 8) {
+    callback();
+    return;
+  }
+
+  const observer = new ResizeObserver(function () {
+    const size = previewCanvas.getBoundingClientRect();
+    if (size.width > 8 && size.height > 8) {
+      observer.disconnect();
+      callback();
+    }
+  });
+
+  observer.observe(previewCanvas);
   requestAnimationFrame(function () {
-    renderPreview();
+    const size = previewCanvas.getBoundingClientRect();
+    if (size.width > 8 && size.height > 8) {
+      observer.disconnect();
+      callback();
+    }
   });
 }
 
+
+function resolveWorkMode(work) {
+  const saved = work.analysisData || {};
+  const candidate = String(work.mode || saved.mode || 'network').toLowerCase();
+  return VALID_MODES.includes(candidate) ? candidate : 'network';
+}
 
 // Build the data the renderer expects and draw the visualization in the modal stage.
 function renderPreview() {
@@ -153,24 +188,47 @@ function renderPreview() {
   }
 
   const saved = selectedWork.analysisData || {};
+  const previewMode = resolveWorkMode(selectedWork);
+  const graphNodes = saved.nodes || [];
+  const graphLinks = saved.links || [];
+  const useSavedGraph = previewMode === 'network' && graphNodes.length > 0;
+  const layoutNodes = graphNodes.map(function (node) {
+    const copy = { ...node };
+    delete copy.x;
+    delete copy.y;
+    delete copy.fx;
+    delete copy.fy;
+    delete copy.vx;
+    delete copy.vy;
+    return copy;
+  });
 
   const previewData = {
+    ...saved,
+    mode: previewMode,
     text: selectedWork.originalText || saved.text || '',
     words: selectedWork.coreWords || saved.words || [],
     relatedWords: selectedWork.relatedWords || saved.relatedWords || [],
     particles: selectedWork.particles || saved.particles || [],
-    links: saved.links || [],
-    nodes: saved.nodes || [],
+    links: graphLinks,
+    cooccurrenceLinks: saved.cooccurrenceLinks || saved.links || [],
+    nodes: layoutNodes,
     frequency: saved.frequency || {},
-    meta: saved.meta || {}
+    meta: saved.meta || {},
+    _source: useSavedGraph ? 'api' : undefined
+  };
+
+  const renderOptions = {
+    ...optionsFromControls(),
+    preferLocalGraph: false
   };
 
   previewRenderer = renderEchoMode({
     container: previewCanvas,
     asciiEl: previewAscii,
-    mode: selectedWork.mode,
+    mode: previewMode,
     data: previewData,
-    options: optionsFromControls(),
+    options: renderOptions,
     renderer: previewRenderer
   });
 }
@@ -191,14 +249,11 @@ function applyControls() {
 
   const opts = optionsFromControls();
 
+  const previewMode = resolveWorkMode(selectedWork);
+
   if (previewRenderer && previewRenderer.updateOptions) {
     previewRenderer.updateOptions(opts);
-    if (
-      selectedWork.mode === 'soup' ||
-      selectedWork.mode === 'vortex' ||
-      selectedWork.mode === 'orbit' ||
-      selectedWork.mode === 'ascii'
-    ) {
+    if (previewMode !== 'network') {
       return;
     }
   }
@@ -238,7 +293,7 @@ function settingsText(d, m, i) {
 // Write the modal header line from the live slider values.
 function updateSettingsLabel() {
   previewSettings.textContent =
-    selectedWork.mode + ' · ' + settingsText(density, motion, intensity);
+    resolveWorkMode(selectedWork) + ' · ' + settingsText(density, motion, intensity);
 }
 
 

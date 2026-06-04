@@ -24,33 +24,46 @@
   <main id="main">
     <!-- Title- Hero Lettering -->
     <section id="hero" class="section section--hero" aria-labelledby="echo-title">
+      <div class="hero__content">
+        <p class="hero__meta">ECHO, A COMPUTATIONAL TEXT ART STUDIO</p>
 
-      <p class="hero__meta">ECHO, A COMPUTATIONAL TEXT ART STUDIO</p>
+        <h1 class="hero__title" id="echo-title">
+          <span class="hero__letter" aria-hidden="true">E</span><span class="hero__letter" aria-hidden="true">C</span><span class="hero__letter" aria-hidden="true">H</span><span class="hero__letter" aria-hidden="true">O</span>
+          <span class="visually-hidden">Echo</span>
+        </h1>
 
-      <h1 class="hero__title" id="echo-title">
-        <span class="hero__letter" aria-hidden="true">E</span><span class="hero__letter" aria-hidden="true">C</span><span class="hero__letter" aria-hidden="true">H</span><span class="hero__letter" aria-hidden="true">O</span>
-        <span class="visually-hidden">Echo</span>
-      </h1>
+        <p class="hero__subtitle">— <em>words that continue breathing</em> —</p>
 
-      <p class="hero__subtitle">— <em>words that continue breathing</em> —</p>
-
-      <a href="#compose" class="hero__enter" id="enter-btn">
-        <span>begin your journey</span>
-        <span class="hero__arrow" aria-hidden="true">↓</span>
-      </a>
+        <a href="#compose" class="hero__enter" id="enter-btn">
+          <span>scroll to compose</span>
+          <span class="hero__arrow" aria-hidden="true">↓</span>
+        </a>
+      </div>
     </section>
 
     <!-- compose and adjustment section -->
     <section id="compose" class="section section--compose" aria-labelledby="compose-heading">
       <h2 id="compose-heading" class="visually-hidden">Compose your passage</h2>
 
+      <div class="compose-settings" aria-label="Display settings">
+        <button type="button" id="sound-toggle" class="sound-toggle" aria-pressed="true">sound: on</button>
+        <span class="compose-settings__sep" aria-hidden="true">|</span>
+        <div class="compose-settings__theme">
+          <span class="control-label" id="theme-label">Theme</span>
+          <div class="control-toggle" id="theme-toggle" role="group" aria-labelledby="theme-label">
+            <button type="button" class="control-toggle__option is-active" id="theme-night" data-value="night" aria-pressed="true">Moonlight</button>
+            <button type="button" class="control-toggle__option" id="theme-paper" data-value="paper" aria-pressed="false">Paper</button>
+          </div>
+        </div>
+      </div>
+
       <!-- form for transforming and for gathering information-->
       <form id="compose-form" class="compose-form" novalidate>
         <div class="compose-frame">
 
           <div class="compose-frame__header">
-            <span>COMPOSE</span>
-            <span>“Words have no single fixed meaning.” — Jorge Luis Borges</span>
+            <span class="compose-frame__title">COMPOSE</span>
+            <span class="compose-frame__quote">“Words have no single fixed meaning.” — Jorge Luis Borges</span>
           </div>
 
           <label for="text-input" class="compose-label">Your passage</label>
@@ -61,7 +74,7 @@
             maxlength="1200"
             rows="8"
             required
-            placeholder="Leave your words here, and let them breathe on their own."
+            placeholder="Paste a poem, diary entry, fragment, or any short piece of writing (up to 1200 characters)."
             aria-describedby="char-counter compose-error"
           ></textarea>
 
@@ -70,7 +83,7 @@
           <p id="transform-status" class="form-status" aria-live="polite"></p>
 
           <div class="compose-frame__footer">
-            <button type="button" class="text-btn" id="sample-btn">Try a sample text</button>
+            <button type="button" class="text-btn sample-btn" id="sample-btn">TRY A SAMPLE TEXT</button>
             <span class="char-counter" id="char-counter" aria-live="polite">0000 / 1200</span>
           </div>
         </div>
@@ -78,14 +91,8 @@
         <button type="submit" class="transform-btn" id="transform-btn">TRANSFORM →</button>
       </form>
 
-      <div class="compose-controls" role="group" aria-label="Visualization controls">
-        <div class="control-group">
-          <span class="control-label" id="theme-label">Theme</span>
-          <div class="control-toggle" id="theme-toggle" role="group" aria-labelledby="theme-label">
-            <button type="button" class="control-toggle__option is-active" id="theme-night" data-value="night" aria-pressed="true">Moonlight</button>
-            <button type="button" class="control-toggle__option" id="theme-paper" data-value="paper" aria-pressed="false">PAPER</button>
-          </div>
-        </div>
+      <div class="compose-controls compose-controls--sliders" role="group" aria-label="Art controls">
+        <p class="controls-hint">ADJUST THE SLIDERS TO ADJUST THE MOVEMENT OF YOUR ART</p>
 
         <div class="control-group">
           <label for="intensity-slider" class="control-label">Intensity <span class="control-value" id="intensity-value">40</span></label>
@@ -107,8 +114,6 @@
     <!-- Studio Canvas section -->
     <section id="studio" class="section section--studio" aria-labelledby="studio-heading">
       <h2 id="studio-heading" class="visually-hidden">Visualization studio</h2>
-
-      <p id="save-status" class="studio-save-status" aria-live="polite"></p>
 
       <div class="visualization-shell">
         <div id="field-summary" class="field-summary" aria-live="polite"></div>
@@ -135,12 +140,15 @@
 
       <div class="studio-actions">
         <button type="button" class="studio-save-btn" id="save-btn" disabled>Save to Gallery</button>
+        <p id="save-status" class="studio-save-status" aria-live="polite"></p>
       </div>
 
       <button type="button" class="studio-side-nav" id="studio-back-btn" aria-label="Back to compose">‹</button>
     </section>
 
   </main>
+
+  <audio id="bg-music" src="assets/about/backgroundMusic.mp3" loop preload="none"></audio>
 
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script type="module" src="main.js"></script>

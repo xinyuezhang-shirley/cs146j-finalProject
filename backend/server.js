@@ -1,15 +1,17 @@
-// server.js
-// backend for the echo project
-// serves the frontend, analyzes text, and saves gallery works to Supabase
-
 const path = require('path');
 const express = require('express');
-const { createClient } = require('@supabase/supabase-js');
+const cors = require('cors');
 
-// load environment variables
-require('dotenv').config({ path: path.join(__dirname, '.env') });
-
-const { analyzeText, fetchDatamuseRelatedWords } = require('./lib/analyzeText');
+const { analyzeText } = require('./lib/analyzeText');
+const {
+  insertWork,
+  getAllWorks,
+  getWorkById,
+  updateWork,
+  deleteWork,
+  initDb,
+  dbPath
+} = require('./lib/db');
 
 const {
   generateNetworkData,
@@ -20,56 +22,31 @@ const {
 } = require('./lib/artData');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 
-// Lets Express read JSON request bodies from fetch()
+const LOCAL_DEV_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || LOCAL_DEV_ORIGIN.test(origin)) {
+        callback(null, origin || true);
+      } else {
+        callback(null, false);
+      }
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Accept'],
+    optionsSuccessStatus: 204
+  })
+);
+
+
+initDb();
 app.use(express.json({ limit: '2mb' }));
 
-// Where my frontend files live
 const frontendPath = path.join(__dirname, '..', 'frontend');
-
-// Supabase setup
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-const supabase = supabaseUrl && supabaseKey
-  ? createClient(supabaseUrl, supabaseKey)
-  : null;
-
-// Allowed gallery modes
 const validModes = ['network', 'soup', 'ascii', 'vortex', 'orbit'];
-
-// Simple localhost CORS.
-// This helps if I open the frontend from a different local dev port.
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-
-  if (origin && origin.includes('localhost')) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  }
-
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(204);
-  }
-
-  next();
-});
-
-
-// checks whether Supabase is ready before using gallery routes
-function checkSupabase(res) {
-  if (!supabase) {
-    res.status(503).json({
-      error: 'Supabase is not configured. Add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to backend/.env.'
-    });
-    return false;
-  }
-
-  return true;
-}
-
 
 // keeps slider values between 0 and 1
 function clampSlider(value, fallback) {
@@ -91,9 +68,6 @@ function clampSlider(value, fallback) {
 }
 
 
-// Supabase uses snake_case column names.
-// My frontend uses camelCase.
-// This converts database rows back into frontend-friendly objects.
 function formatWork(row) {
   return {
     id: row.id,
@@ -186,14 +160,8 @@ function getTextFromRequest(req, res) {
 
 // runs the text analysis pipeline
 async function analyzeEchoText(text, body) {
-  const useDatamuse =
-    process.env.USE_DATAMUSE === 'true' ||
-    process.env.NETWORK_DATAMUSE !== 'false';
-
   return analyzeText(text, {
-    density: body.density || 1,
-    useDatamuse: useDatamuse,
-    fetchExternal: useDatamuse ? fetchDatamuseRelatedWords : null
+    density: body.density || 1
   });
 }
 
@@ -279,24 +247,12 @@ app.post('/api/art/orbit', async (req, res) => {
 });
 
 
-// save one work to Supabase
+// save one work to SQLite
 app.post('/api/works', async (req, res) => {
-  if (!checkSupabase(res)) return;
-
   try {
     const newWork = prepareWorkForDatabase(req.body);
-
-    const { data, error } = await supabase
-      .from('echo_works')
-      .insert(newWork)
-      .select()
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    res.status(201).json(formatWork(data));
+    const saved = insertWork(newWork);
+    res.status(201).json(formatWork(saved));
   } catch (error) {
     res.status(400).json({
       error: 'Failed to save work',
@@ -308,19 +264,8 @@ app.post('/api/works', async (req, res) => {
 
 // load all gallery works
 app.get('/api/works', async (req, res) => {
-  if (!checkSupabase(res)) return;
-
   try {
-    const { data, error } = await supabase
-      .from('echo_works')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw error;
-    }
-
-    res.json((data || []).map(formatWork));
+    res.json(getAllWorks().map(formatWork));
   } catch (error) {
     res.status(500).json({
       error: 'Failed to load gallery',
@@ -332,25 +277,15 @@ app.get('/api/works', async (req, res) => {
 
 // load one work by id
 app.get('/api/works/:id', async (req, res) => {
-  if (!checkSupabase(res)) return;
-
   try {
-    const { data, error } = await supabase
-      .from('echo_works')
-      .select('*')
-      .eq('id', req.params.id)
-      .maybeSingle();
+    const work = getWorkById(req.params.id);
 
-    if (error) {
-      throw error;
-    }
-
-    if (!data) {
+    if (!work) {
       res.status(404).json({ error: 'Work not found' });
       return;
     }
 
-    res.json(formatWork(data));
+    res.json(formatWork(work));
   } catch (error) {
     res.status(500).json({
       error: 'Failed to load work',
@@ -362,8 +297,6 @@ app.get('/api/works/:id', async (req, res) => {
 
 // update sliders/options for one saved work
 app.put('/api/works/:id', async (req, res) => {
-  if (!checkSupabase(res)) return;
-
   const update = {};
 
   if (req.body.density !== undefined) {
@@ -388,23 +321,14 @@ app.put('/api/works/:id', async (req, res) => {
   }
 
   try {
-    const { data, error } = await supabase
-      .from('echo_works')
-      .update(update)
-      .eq('id', req.params.id)
-      .select()
-      .maybeSingle();
+    const updated = updateWork(req.params.id, update);
 
-    if (error) {
-      throw error;
-    }
-
-    if (!data) {
+    if (!updated) {
       res.status(404).json({ error: 'Work not found' });
       return;
     }
 
-    res.json(formatWork(data));
+    res.json(formatWork(updated));
   } catch (error) {
     res.status(500).json({
       error: 'Failed to update work',
@@ -416,16 +340,12 @@ app.put('/api/works/:id', async (req, res) => {
 
 // delete one work
 app.delete('/api/works/:id', async (req, res) => {
-  if (!checkSupabase(res)) return;
-
   try {
-    const { error } = await supabase
-      .from('echo_works')
-      .delete()
-      .eq('id', req.params.id);
+    const deleted = deleteWork(req.params.id);
 
-    if (error) {
-      throw error;
+    if (!deleted) {
+      res.status(404).json({ error: 'Work not found' });
+      return;
     }
 
     res.json({
@@ -448,8 +368,5 @@ app.use(express.static(frontendPath));
 // start the server
 app.listen(PORT, () => {
   console.log(`Echo running at http://localhost:${PORT}`);
-
-  if (!supabase) {
-    console.log('Gallery is disabled because Supabase is not configured.');
-  }
+  console.log(`Gallery database: ${dbPath}`);
 });

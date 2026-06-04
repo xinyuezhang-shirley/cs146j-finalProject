@@ -47,12 +47,12 @@ function getPhysics(options) {
   const intensity = options.intensity || 0.4;
 
   return {
-    baseSpeed: 0.3 + motion * 4.5,
-    noiseForce: 0.012 + intensity * 0.095,
-    wobble: 0.006 + motion * 0.028 + intensity * 0.02,
-    drift: 0.4 + intensity * 1.6,
+    baseSpeed: 0.3 + motion * 9,
+    maxSpeed: 1.8 + motion * 11,
+    drift: 0.4 + motion * 3.2,
     damp: 0.985 - (1 - motion) * 0.012,
-    maxSpeed: 1.8 + motion * 5.5,
+    noiseForce: 0.012 + intensity * 0.095,
+    wobble: 0.006 + intensity * 0.03 + motion * 0.006,
     cursorRadius: 80 + intensity * 110,
     cursorStrength: 0.22 + intensity * 0.55,
     grabRadius: 42
@@ -173,6 +173,13 @@ export function renderSoup(container, data, options) {
     y: height / 2,
     down: false,
     dragging: null,
+    panning: false,
+    panStartX: 0,
+    panStartY: 0,
+    panBaseOffsetX: 0,
+    panBaseOffsetY: 0,
+    screenX: width / 2,
+    screenY: height / 2,
     lastX: width / 2,
     lastY: height / 2,
     vx: 0,
@@ -376,6 +383,9 @@ export function renderSoup(container, data, options) {
   }
 
   function onPointerDown(event) {
+    if (event.button !== undefined && event.button !== 0) {
+      return;
+    }
     canvas.setPointerCapture(event.pointerId);
     pointer.down = true;
     canvas.style.cursor = 'grabbing';
@@ -386,9 +396,27 @@ export function renderSoup(container, data, options) {
       pointer.y,
       worldGrabRadius()
     );
+    if (!pointer.dragging) {
+      pointer.panning = true;
+      pointer.panStartX = pointer.screenX;
+      pointer.panStartY = pointer.screenY;
+      pointer.panBaseOffsetX = view.targetOffsetX;
+      pointer.panBaseOffsetY = view.targetOffsetY;
+    }
   }
 
   function onPointerMove(event) {
+    const rect = canvas.getBoundingClientRect();
+    const sx = event.clientX - rect.left;
+    const sy = event.clientY - rect.top;
+
+    if (pointer.panning) {
+      view.targetOffsetX = pointer.panBaseOffsetX + (sx - pointer.panStartX);
+      view.targetOffsetY = pointer.panBaseOffsetY + (sy - pointer.panStartY);
+      pointer.screenX = sx;
+      pointer.screenY = sy;
+      return;
+    }
     setPointerPosition(event.clientX, event.clientY);
   }
 
@@ -398,10 +426,22 @@ export function renderSoup(container, data, options) {
     }
     pointer.down = false;
     pointer.dragging = null;
+    pointer.panning = false;
     canvas.style.cursor = 'grab';
   }
 
   function onWheel(event) {
+    const canvasRect = container.getBoundingClientRect();
+    const overCanvas =
+      event.clientX >= canvasRect.left &&
+      event.clientX <= canvasRect.right &&
+      event.clientY >= canvasRect.top &&
+      event.clientY <= canvasRect.bottom;
+
+    if (!overCanvas) {
+      return;
+    }
+
     event.preventDefault();
     const rect = canvas.getBoundingClientRect();
     zoomAtScreenPoint(event.clientX - rect.left, event.clientY - rect.top, event.deltaY);
@@ -436,11 +476,28 @@ export function renderSoup(container, data, options) {
     syncDensity();
   }
 
-  canvas.addEventListener('pointerdown', onPointerDown);
-  canvas.addEventListener('pointermove', onPointerMove);
-  canvas.addEventListener('pointerup', onPointerUp);
-  canvas.addEventListener('pointercancel', onPointerUp);
-  canvas.addEventListener('pointerleave', onPointerUp);
+  function endPointerSession() {
+    window.removeEventListener('pointermove', onPointerMove);
+    window.removeEventListener('pointerup', onPointerUp);
+    window.removeEventListener('pointercancel', onPointerUp);
+  }
+
+  function onPointerDownWrapped(event) {
+    onPointerDown(event);
+    if (!pointer.down) {
+      return;
+    }
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+  }
+
+  function onPointerUpWrapped(event) {
+    onPointerUp(event);
+    endPointerSession();
+  }
+
+  canvas.addEventListener('pointerdown', onPointerDownWrapped);
   wheelSurface.addEventListener('wheel', onWheel, { passive: false });
   canvas.addEventListener('dblclick', onDoubleClick);
 
@@ -484,11 +541,8 @@ export function renderSoup(container, data, options) {
       cancelAnimationFrame(animationId);
       animationId = null;
       resizeObserver.disconnect();
-      canvas.removeEventListener('pointerdown', onPointerDown);
-      canvas.removeEventListener('pointermove', onPointerMove);
-      canvas.removeEventListener('pointerup', onPointerUp);
-      canvas.removeEventListener('pointercancel', onPointerUp);
-      canvas.removeEventListener('pointerleave', onPointerUp);
+      canvas.removeEventListener('pointerdown', onPointerDownWrapped);
+      endPointerSession();
       wheelSurface.removeEventListener('wheel', onWheel);
       canvas.removeEventListener('dblclick', onDoubleClick);
     }

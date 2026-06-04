@@ -1,6 +1,8 @@
 import { applyTheme, initTheme } from './helperJS/theme.js';
+import { initSound } from './helperJS/sound.js';
 
 applyTheme(initTheme());
+initSound();
 
 const nav = document.querySelector('.about-nav');
 

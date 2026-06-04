@@ -1,10 +1,11 @@
 // main.js
 // connects the form, controls, theme buttons, visualization, and save button
 
-import { analyzeText, saveWork } from './helperJS/apiClient.js';
+import { generateModeArt, saveWork } from './helperJS/apiClient.js';
 import { SAMPLE_PASSAGE } from './helperJS/textProcessing.js';
 import { renderEchoMode, destroyEchoMode } from './helperJS/controls.js';
 import { applyTheme, initTheme, syncThemeUI } from './helperJS/theme.js';
+import { initSound } from './helperJS/sound.js';
 
 const state = {
   theme: 'night',
@@ -13,7 +14,9 @@ const state = {
   density: 60,
   motion: 40,
   analysis: null,
-  renderer: null
+  originalText: '',
+  renderer: null,
+  renderOptions: {}
 };
 
 // page elements
@@ -187,12 +190,18 @@ function renderCurrentMode() {
     asciiEl: asciiOutput,
     mode: state.mode,
     data: state.analysis,
-    options: getOptions(),
+    options: { ...getOptions(), ...state.renderOptions },
     renderer: state.renderer
   });
   updateSummary();
 }
 
+
+async function loadModeArt() {
+  const payload = await generateModeArt(state.mode, state.originalText, getOptions());
+  state.analysis = payload;
+  state.renderOptions = {};
+}
 
 /***------- main function that calls text transform and then renders the current mode---***/
 async function transformText(event) {
@@ -211,21 +220,15 @@ async function transformText(event) {
 
   try {
     clearVisualization();
+    state.originalText = text;
+    await loadModeArt();
 
-    // calls the analyzeText function to analyze the text
-    const analysis = await analyzeText(text, {
-      density: state.density / 100
-    });
-
-    //async finishes, then updates the state and renders the current mode
-    state.analysis = analysis;
     transformStatus.textContent = 'Transform complete.';
     saveBtn.disabled = false;
 
     updateSummary();
     scrollToSection('studio');
     renderCurrentMode();
-
   } catch (error) {
     console.log(error);
     showError('Something went wrong while transforming.');
@@ -246,15 +249,29 @@ function updateControls() {
   updateSliderLabels();
   updateSummary();
 
-  if (state.analysis) {
-    const opts = getOptions();
-    if (state.renderer && state.renderer.updateOptions) {
-      state.renderer.updateOptions(opts);
-      return;
-    }
-
-    renderCurrentMode();
+  if (!state.analysis || !state.originalText) {
+    return;
   }
+
+  const opts = getOptions();
+
+  if (
+    state.renderer &&
+    state.renderer.updateOptions &&
+    state.mode !== 'network'
+  ) {
+    state.renderer.updateOptions(opts);
+    updateSummary();
+    return;
+  }
+
+  if (state.mode === 'network') {
+    state.renderOptions = { preferLocalGraph: true };
+    renderCurrentMode();
+    return;
+  }
+
+  renderCurrentMode();
 }
 
 // saves the current work to the gallery
@@ -268,23 +285,35 @@ async function saveCurrentWork() {
   saveStatus.textContent = 'Saving...';
 
   try {
+    if (state.originalText && state.analysis.mode !== state.mode) {
+      await loadModeArt();
+    }
+
+    const analysisPayload = {
+      ...state.analysis,
+      mode: state.mode
+    };
+
     await saveWork({
       originalText: textInput.value.trim(),
-      coreWords: state.analysis.words || [],
-      relatedWords: state.analysis.relatedWords || [],
-      particles: state.analysis.particles || [],
+      coreWords: analysisPayload.words || [],
+      relatedWords: analysisPayload.relatedWords || [],
+      particles: analysisPayload.particles || [],
       mode: state.mode,
       density: state.density / 100,
       motion: state.motion / 100,
       intensity: state.intensity / 100,
       options: getOptions(),
-      analysisData: state.analysis
+      analysisData: analysisPayload
     });
 
     saveStatus.textContent = 'Saved to Gallery.';
   } catch (error) {
     console.log(error);
-    saveStatus.textContent = 'Failed to save.';
+    saveStatus.textContent =
+      error && error.message
+        ? error.message
+        : 'Failed to save. Open the app at http://localhost:3000 with the backend running.';
   }
 
   saveBtn.disabled = false;
@@ -318,10 +347,23 @@ densitySlider.addEventListener('input', updateControls);
 motionSlider.addEventListener('input', updateControls);
 
 modeButtons.forEach(function (button) {
-  button.addEventListener('click', function () {
+  button.addEventListener('click', async function () {
     state.mode = button.dataset.mode;
     updateModeButtons();
-    renderCurrentMode();
+
+    if (!state.originalText) {
+      renderCurrentMode();
+      return;
+    }
+
+    studioCanvas.classList.add('is-loading');
+    try {
+      await loadModeArt();
+      renderCurrentMode();
+    } catch (error) {
+      console.log(error);
+    }
+    studioCanvas.classList.remove('is-loading');
   });
 });
 
@@ -336,6 +378,8 @@ backBtn.addEventListener('click', function () {
 
 saveBtn.addEventListener('click', saveCurrentWork);
 window.addEventListener('scroll', updateNav);
+
+initSound();
 
 // startup
 setTheme(initTheme());

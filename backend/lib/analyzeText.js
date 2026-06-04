@@ -1,5 +1,6 @@
-// Text analysis for Echo — word counts, links, related words, particles.
-// Datamuse is optional; the server passes in fetchExternal when enabled.
+// This started as the server version of the simple browser textProcessing.js
+// It keeps the same basic output shape, but adds stronger links, related words,
+// and Datamuse enrichment so the visualizations have more material to work with
 
 const { buildParticles } = require('./artData');
 
@@ -23,220 +24,345 @@ const STOPWORDS = new Set([
 const POETIC_PREFIXES = ['un', 're', 'over', 'under', 'out', 'mis'];
 const POETIC_SUFFIXES = ['ness', 'ing', 'ly', 'less', 'ful', 'ward', 'like'];
 
-function extractWords(text) {
-  const raw = text.toLowerCase().match(/[a-z']+/g) || [];
-  const frequency = {};
-  const order = [];
 
-  raw.forEach((word) => {
-    if (word.length < 2 || STOPWORDS.has(word)) return;
-    if (!frequency[word]) {
-      frequency[word] = 0;
-      order.push(word);
-    }
-    frequency[word] += 1;
+// turns a passage into a clean list of words (keeps order, skips stopwords)
+function getWords(text) {
+  const matches = text.toLowerCase().match(/[a-z']+/g) || [];
+
+  return matches.filter(function (word) {
+    return word.length >= 2 && !STOPWORDS.has(word);
   });
-
-  const words = order.map((word) => ({
-    text: word,
-    frequency: frequency[word],
-    type: 'core',
-    source: 'input'
-  }));
-
-  return { words, frequency, rawWordCount: raw.length };
 }
 
-function buildCooccurrenceLinks(words, text, windowSize = 4) {
+
+// counts how often each word appears and remembers first-seen order
+function countWords(cleanWords) {
+  const counts = {};
+  const order = [];
+
+  cleanWords.forEach(function (word) {
+    if (!counts[word]) {
+      counts[word] = 0;
+      order.push(word);
+    }
+    counts[word] += 1;
+  });
+
+  return { counts: counts, order: order };
+}
+
+
+// creates the main word list used by the visuals
+function makeWordList(counts, order) {
+  return order.map(function (word) {
+    return {
+      text: word,
+      frequency: counts[word],
+      type: 'core',
+      source: 'input'
+    };
+  });
+}
+
+
+// connects words that appear near each other in the passage (weighted window)
+function makeLinks(wordList, text, windowSize) {
   const tokens = text.toLowerCase().match(/[a-z']+/g) || [];
-  const wordSet = new Set(words.map((w) => w.text));
+  const wordSet = new Set(wordList.map(function (w) { return w.text; }));
   const pairCounts = {};
+  const links = [];
 
   for (let i = 0; i < tokens.length; i++) {
     const anchor = tokens[i];
-    if (!wordSet.has(anchor)) continue;
+    if (!wordSet.has(anchor)) {
+      continue;
+    }
 
-    for (let j = i + 1; j < Math.min(i + windowSize, tokens.length); j++) {
+    const end = Math.min(i + windowSize, tokens.length);
+    for (let j = i + 1; j < end; j++) {
       const neighbor = tokens[j];
-      if (!wordSet.has(neighbor) || anchor === neighbor) continue;
+      if (!wordSet.has(neighbor) || anchor === neighbor) {
+        continue;
+      }
+
       const key = [anchor, neighbor].sort().join('|');
-      pairCounts[key] = (pairCounts[key] || 0) + 1;
+      if (!pairCounts[key]) {
+        pairCounts[key] = 0;
+      }
+      pairCounts[key] += 1;
     }
   }
 
-  return Object.entries(pairCounts).map(([key, weight]) => {
-    const [source, target] = key.split('|');
-    return { source, target, weight };
-  });
+  const keys = Object.keys(pairCounts);
+  for (let k = 0; k < keys.length; k++) {
+    const key = keys[k];
+    const parts = key.split('|');
+    links.push({
+      source: parts[0],
+      target: parts[1],
+      weight: pairCounts[key]
+    });
+  }
+
+  return links;
 }
 
-function generateLocalRelatedWords(words, text, links = []) {
-  const seen = new Set(words.map((w) => w.text));
+
+// guesses related words from links, neighbors, and small word-shape tweaks
+function makeLocalRelatedWords(wordList, text, links) {
+  const seen = new Set(wordList.map(function (w) { return w.text; }));
   const related = [];
 
-  const add = (text, score, sourceWord) => {
-    const normalized = text.toLowerCase();
-    if (seen.has(normalized) || normalized.length < 2 || STOPWORDS.has(normalized)) return;
+  function addRelated(wordText, score, sourceWord) {
+    const normalized = wordText.toLowerCase();
+    if (seen.has(normalized) || normalized.length < 2 || STOPWORDS.has(normalized)) {
+      return;
+    }
     seen.add(normalized);
-    related.push({ text: normalized, score, source: sourceWord, type: 'related' });
-  };
-
-  const topWords = words.slice(0, 8);
-  const topSet = new Set(topWords.map((w) => w.text));
-  const wordSet = new Set(words.map((w) => w.text));
-
-  [...links]
-    .sort((a, b) => b.weight - a.weight)
-    .forEach((link) => {
-      if (topSet.has(link.source)) add(link.target, 0.2 + link.weight * 0.08, link.source);
-      if (topSet.has(link.target)) add(link.source, 0.2 + link.weight * 0.08, link.target);
+    related.push({
+      text: normalized,
+      score: score,
+      source: sourceWord,
+      type: 'related'
     });
+  }
+
+  const topWords = wordList.slice(0, 8);
+  const topSet = new Set(topWords.map(function (w) { return w.text; }));
+  const wordSet = new Set(wordList.map(function (w) { return w.text; }));
+
+  const sortedLinks = links.slice().sort(function (a, b) {
+    return b.weight - a.weight;
+  });
+
+  sortedLinks.forEach(function (link) {
+    if (topSet.has(link.source)) {
+      addRelated(link.target, 0.2 + link.weight * 0.08, link.source);
+    }
+    if (topSet.has(link.target)) {
+      addRelated(link.source, 0.2 + link.weight * 0.08, link.target);
+    }
+  });
 
   const tokens = text.toLowerCase().match(/[a-z']+/g) || [];
   for (let i = 0; i < tokens.length - 1; i++) {
     const left = tokens[i];
     const right = tokens[i + 1];
-    if (wordSet.has(left) && !wordSet.has(right)) add(right, 0.35, left);
-    if (wordSet.has(right) && !wordSet.has(left)) add(left, 0.35, right);
+    if (wordSet.has(left) && !wordSet.has(right)) {
+      addRelated(right, 0.35, left);
+    }
+    if (wordSet.has(right) && !wordSet.has(left)) {
+      addRelated(left, 0.35, right);
+    }
   }
 
-  words
-    .filter((w) => w.frequency >= 2)
-    .slice(0, 6)
-    .forEach((w) => {
-      if (w.text.length > 4) add(w.text.slice(0, Math.ceil(w.text.length / 2)), 0.18, w.text);
-    });
+  const repeatedWords = wordList.filter(function (w) {
+    return w.frequency >= 2;
+  }).slice(0, 6);
 
-  topWords.slice(0, 5).forEach((w) => {
-    const word = w.text;
-    POETIC_PREFIXES.forEach((prefix) => add(prefix + word, 0.22, word));
-    POETIC_SUFFIXES.forEach((suffix) => add(word + suffix, 0.2, word));
-    if (word.endsWith('s') && word.length > 3) add(word.slice(0, -1), 0.16, word);
-    else if (!word.endsWith('s')) add(word + 's', 0.16, word);
+  repeatedWords.forEach(function (w) {
+    if (w.text.length > 4) {
+      const half = Math.ceil(w.text.length / 2);
+      addRelated(w.text.slice(0, half), 0.18, w.text);
+    }
   });
 
-  return related.sort((a, b) => b.score - a.score).slice(0, 60);
+  const seedWords = topWords.slice(0, 5);
+  seedWords.forEach(function (w) {
+    const word = w.text;
+    let p = 0;
+    for (p = 0; p < POETIC_PREFIXES.length; p++) {
+      addRelated(POETIC_PREFIXES[p] + word, 0.22, word);
+    }
+    for (p = 0; p < POETIC_SUFFIXES.length; p++) {
+      addRelated(word + POETIC_SUFFIXES[p], 0.2, word);
+    }
+    if (word.endsWith('s') && word.length > 3) {
+      addRelated(word.slice(0, -1), 0.16, word);
+    } else if (!word.endsWith('s')) {
+      addRelated(word + 's', 0.16, word);
+    }
+  });
+
+  related.sort(function (a, b) {
+    return b.score - a.score;
+  });
+
+  return related.slice(0, 60);
 }
 
-function mergeRelatedWords(localWords, externalWords) {
+
+// combines local related words and Datamuse words, keeping the stronger score
+function mergeRelatedWords(localWords, datamuseWords) {
   const byText = new Map();
 
-  localWords.forEach((w) => byText.set(w.text, w));
-  externalWords.forEach((w) => {
+  localWords.forEach(function (w) {
+    byText.set(w.text, w);
+  });
+
+  datamuseWords.forEach(function (w) {
     const existing = byText.get(w.text);
     if (!existing || w.score > existing.score) {
       byText.set(w.text, w);
     }
   });
 
-  return [...byText.values()].sort((a, b) => b.score - a.score).slice(0, 60);
+  const merged = Array.from(byText.values());
+  merged.sort(function (a, b) {
+    return b.score - a.score;
+  });
+
+  return merged.slice(0, 60);
 }
 
-async function fetchDatamuse(url) {
+
+// one Datamuse request; returns an empty list if the network fails
+async function fetchDatamuseJson(url) {
   try {
     const response = await fetch(url);
-    if (!response.ok) throw new Error(`Datamuse error: ${response.status}`);
+    if (!response.ok) {
+      throw new Error('Datamuse error: ' + response.status);
+    }
     return await response.json();
-  } catch {
+  } catch (err) {
     return [];
   }
 }
 
-// Optional Datamuse enrichment — only called from the server, never the browser.
-async function fetchDatamuseRelatedWords(seedWords) {
-  const seeds = seedWords.slice(0, 6);
-  const related = new Map();
-  const seen = new Set(seedWords.map((w) => (w.text || w).toLowerCase()));
 
-  for (const item of seeds) {
+// asks Datamuse for words that feel related to the main words in the passage
+async function getDatamuseWords(wordList) {
+  const seeds = wordList.slice(0, 6);
+  const related = new Map();
+  const seen = new Set(wordList.map(function (w) {
+    return (w.text || w).toLowerCase();
+  }));
+
+  for (let s = 0; s < seeds.length; s++) {
+    const item = seeds[s];
     const seed = (typeof item === 'string' ? item : item.text).toLowerCase();
     const encoded = encodeURIComponent(seed);
 
     const urls = [
-      `https://api.datamuse.com/words?ml=${encoded}&max=8`,
-      `https://api.datamuse.com/words?rel_trg=${encoded}&max=8`,
-      `https://api.datamuse.com/words?rel_syn=${encoded}&max=5`
+      'https://api.datamuse.com/words?ml=' + encoded + '&max=8',
+      'https://api.datamuse.com/words?rel_trg=' + encoded + '&max=8',
+      'https://api.datamuse.com/words?rel_syn=' + encoded + '&max=5'
     ];
 
-    for (const url of urls) {
-      const data = await fetchDatamuse(url);
+    for (let u = 0; u < urls.length; u++) {
+      const data = await fetchDatamuseJson(urls[u]);
 
-      data.forEach((entry) => {
-        const text = entry.word.toLowerCase();
+      for (let d = 0; d < data.length; d++) {
+        const entry = data[d];
+        const wordText = entry.word.toLowerCase();
 
         if (
-          text.includes(' ')
-          || text.includes('-')
-          || text.length < 3
-          || seen.has(text)
-          || STOPWORDS.has(text)
+          wordText.includes(' ')
+          || wordText.includes('-')
+          || wordText.length < 3
+          || seen.has(wordText)
+          || STOPWORDS.has(wordText)
         ) {
-          return;
+          continue;
         }
 
-        seen.add(text);
-        related.set(text, {
-          text,
+        seen.add(wordText);
+        related.set(wordText, {
+          text: wordText,
           score: (entry.score || 0) / 100000,
           source: seed,
           type: 'related'
         });
-      });
+      }
     }
   }
 
-  return Array.from(related.values())
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 60);
+  const list = Array.from(related.values());
+  list.sort(function (a, b) {
+    return b.score - a.score;
+  });
+
+  return list.slice(0, 60);
 }
 
-async function resolveRelatedWords(words, text, links, useDatamuse, fetchExternal) {
-  const local = generateLocalRelatedWords(words, text, links);
-  if (!useDatamuse || !fetchExternal) return local;
+
+// builds the final related-word list (local guesses plus Datamuse)
+async function buildRelatedWords(wordList, text, links) {
+  const local = makeLocalRelatedWords(wordList, text, links);
 
   try {
-    const external = await fetchExternal(words);
-    return mergeRelatedWords(local, external);
-  } catch {
+    const fromDatamuse = await getDatamuseWords(wordList);
+    return mergeRelatedWords(local, fromDatamuse);
+  } catch (err) {
     return local;
   }
 }
 
-async function analyzeText(text, options = {}) {
-  const density = Math.min(1, Math.max(0, options.density ?? 1));
-  const { words, frequency } = extractWords(text);
-  const links = buildCooccurrenceLinks(words, text);
-  const relatedWords = await resolveRelatedWords(
-    words,
-    text,
-    links,
-    options.useDatamuse,
-    options.fetchExternal
-  );
-  const particles = buildParticles(words, relatedWords, density);
+
+// pulls words, links, related words, and particles out of a passage
+function extractWords(text) {
+  const cleanWords = getWords(text);
+  const counted = countWords(cleanWords);
+  const words = makeWordList(counted.counts, counted.order);
+  const raw = text.toLowerCase().match(/[a-z']+/g) || [];
 
   return {
-    text,
-    words,
-    frequency,
-    relatedWords,
-    particles,
-    links,
-    nodes: words.map((w) => ({ id: w.text, frequency: w.frequency })),
+    words: words,
+    frequency: counted.counts,
+    rawWordCount: raw.length
+  };
+}
+
+
+// main analysis used by the API routes
+async function analyzeText(text, options) {
+  options = options || {};
+  let density = options.density;
+  if (density === undefined || density === null) {
+    density = 1;
+  }
+  density = Math.min(1, Math.max(0, density));
+
+  const extracted = extractWords(text);
+  const words = extracted.words;
+  const frequency = extracted.frequency;
+  const links = makeLinks(words, text, 4);
+  const relatedWords = await buildRelatedWords(words, text, links);
+  const particles = buildParticles(words, relatedWords, density);
+
+  const nodes = words.map(function (w) {
+    return {
+      id: w.text,
+      frequency: w.frequency
+    };
+  });
+
+  return {
+    text: text,
+    words: words,
+    frequency: frequency,
+    relatedWords: relatedWords,
+    particles: particles,
+    links: links,
+    nodes: nodes,
     meta: {
       wordCount: words.length,
       relatedCount: relatedWords.length,
-      enrichment: options.useDatamuse ? 'datamuse+echo' : 'echo-local',
+      enrichment: 'datamuse+echo',
       analyzedAt: new Date().toISOString()
     }
   };
 }
 
+
+// older names kept so other backend files can still require them
+const buildCooccurrenceLinks = makeLinks;
+const generateLocalRelatedWords = makeLocalRelatedWords;
+
 module.exports = {
-  STOPWORDS,
-  extractWords,
-  buildCooccurrenceLinks,
-  generateLocalRelatedWords,
-  analyzeText,
-  fetchDatamuseRelatedWords
+  STOPWORDS: STOPWORDS,
+  extractWords: extractWords,
+  buildCooccurrenceLinks: buildCooccurrenceLinks,
+  generateLocalRelatedWords: generateLocalRelatedWords,
+  analyzeText: analyzeText
 };

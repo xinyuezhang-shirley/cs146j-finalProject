@@ -130,20 +130,23 @@ body.paper .site-nav.is-scrolled {
 
 /* hero — landing area with the big ECHO title and enter link */
 .section--hero {
-  min-height: 78vh;
+  min-height: 100vh;
+  min-height: 100svh;
   padding: 6rem 2rem 2rem;
+  text-align: center;
+}
 
+.hero__content {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 1.25rem;
-
-  text-align: center;
+  min-height: inherit;
 }
 
 .hero__meta {
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   letter-spacing: 0.16em;
   color: var(--muted);
 }
@@ -169,7 +172,7 @@ body.paper .site-nav.is-scrolled {
 
 .hero__subtitle {
   font-family: var(--serif);
-  font-size: 1.5rem;
+  font-size: 1.65rem;
   color: var(--muted);
 }
 
@@ -179,7 +182,7 @@ body.paper .site-nav.is-scrolled {
 
 .hero__enter {
   margin-top: 1rem;
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   letter-spacing: 0.16em;
   color: var(--muted);
 }
@@ -188,33 +191,72 @@ body.paper .site-nav.is-scrolled {
   color: var(--text);
 }
 
-/* compose with text input form, sliders, and theme toggle */
+/* compose with text input form, sliders, and global settings */
 .section--compose {
-  padding: 5rem 2rem 2rem;
+  padding: 5rem 2rem 0.25rem;
 
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.5rem;
+  gap: 1.25rem;
 }
 
+.compose-settings,
 .compose-form,
 .compose-controls {
   width: 100%;
   max-width: 760px;
 }
 
+.compose-settings {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.compose-settings__sep {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  line-height: 1;
+  user-select: none;
+}
+
+.compose-settings__theme {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.compose-settings .control-label {
+  margin-bottom: 0;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+}
+
+.section--compose .compose-settings .sound-toggle {
+  position: static;
+  z-index: auto;
+  border: 0;
+  padding: 0;
+  min-height: auto;
+  background: transparent;
+}
+
 .compose-form {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.5rem;
+  gap: 1.75rem;
 }
 
 /* bordered box around the textarea and its header/footer labels */
 .compose-frame {
   width: 100%;
-  padding: 2rem;
+  padding: 2.25rem 2rem 2rem;
   background: var(--panel);
   border: 1px solid var(--line);
 }
@@ -223,26 +265,43 @@ body.paper .site-nav.is-scrolled {
 .compose-frame__footer {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
   gap: 1rem;
-  font-size: 0.65rem;
-  color: var(--muted);
 }
 
 .compose-frame__header {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.75rem;
+}
+
+.compose-frame__title {
+  font-family: var(--mono);
+  font-size: clamp(1.15rem, 2.8vw, 1.5rem);
+  font-weight: 600;
+  letter-spacing: 0.32em;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.compose-frame__quote {
+  max-width: 52%;
+  font-size: 0.62rem;
+  line-height: 1.55;
+  color: var(--muted);
+  text-align: right;
 }
 
 .compose-frame__footer {
-  margin-top: 1rem;
-  padding-top: 1rem;
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
   border-top: 1px solid var(--line);
+  align-items: center;
 }
 
 .compose-label,
 .control-label {
   display: block;
   margin-bottom: 0.5rem;
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   color: var(--muted);
 }
 
@@ -250,7 +309,7 @@ body.paper .site-nav.is-scrolled {
 .compose-input {
   min-height: 220px;
   font-family: var(--serif);
-  font-size: 1.3rem;
+  font-size: 1.42rem;
   font-style: italic;
   line-height: 1.6;
 }
@@ -272,11 +331,20 @@ body.paper .site-nav.is-scrolled {
   color: #d98c8c;
 }
 
-.text-btn {
-  color: var(--muted);
+.sample-btn {
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--line);
+  color: var(--text);
+  background: transparent;
 }
 
-.text-btn:hover {
+.sample-btn:hover {
+  border-color: var(--text);
   color: var(--text);
 }
 
@@ -291,18 +359,102 @@ body.paper .site-nav.is-scrolled {
   color: var(--text);
 }
 
-.transform-btn:hover,
+.transform-btn {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  padding: 0.85rem 2.75rem;
+}
+
+.compose-controls--sliders .control-label {
+  font-size: 0.66rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text);
+  opacity: 0.75;
+}
+
+.transform-btn:hover {
+  background: transparent;
+  color: var(--text);
+}
+
 .control-toggle__option.is-active {
   background: var(--text);
   color: var(--bg);
 }
 
-/* row of density / motion / intensity sliders below the form */
+.sound-toggle {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 120;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.sound-toggle:hover,
+.sound-toggle[aria-pressed="true"] {
+  color: var(--text);
+}
+
+/* intensity / density / motion sliders below transform */
 .compose-controls {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 1.25rem;
+}
+
+.compose-controls--sliders {
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  border-top: none;
+  gap: 0.3rem 1.25rem;
+}
+
+.compose-controls--sliders::before {
+  content: '';
+  display: block;
+  flex: 0 0 100%;
+  width: 100%;
+  height: 0;
+  border-top: 1px solid var(--line);
+  margin: 0 0 0.35rem;
+}
+
+.compose-controls--sliders .controls-hint {
+  flex: 0 0 100%;
+  width: 100%;
+  margin: 0 0 0.2rem;
+  padding: 0;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0.75;
+  line-height: 1.35;
+}
+
+.compose-settings .control-toggle__option {
+  min-height: 32px;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
 }
 
 .control-group {
@@ -325,8 +477,12 @@ body.paper .site-nav.is-scrolled {
 }
 
 /* studio control with visualization area after transform */
+#studio {
+  scroll-margin-top: calc(var(--nav-height) + 0.5rem);
+}
+
 .section--studio {
-  padding-top: calc(var(--nav-height) + 1rem);
+  padding-top: 0.25rem;
   padding-inline: clamp(1rem, 3vw, 2rem);
   padding-bottom: 2rem;
   display: flex;
@@ -336,14 +492,16 @@ body.paper .site-nav.is-scrolled {
 
 .studio-actions {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
   margin-top: 1rem;
 }
 
-/* status text under the save button */
+/* status text directly under the save button */
 .studio-save-status {
   min-height: 1.25rem;
-  margin: 0 0 0.85rem;
+  margin: 0;
   text-align: center;
   font-size: 0.65rem;
   letter-spacing: 0.06em;
@@ -368,7 +526,7 @@ body.paper .site-nav.is-scrolled {
 .field-summary {
   width: 100%;
   max-width: min(920px, 94vw);
-  margin: 0 auto 1.25rem;
+  margin: 0 auto 0.35rem;
   padding: 0 1rem;
   text-align: center;
   color: var(--muted);
@@ -419,24 +577,22 @@ body.paper .site-nav.is-scrolled {
   letter-spacing: 0.2em;
 }
 
-/* canvas container — holds mode tabs on top and the drawing area below */
+/* canvas container — mode tabs + drawing area (grid so tabs never cover the canvas) */
 .studio-canvas-wrap {
+  display: grid;
+  grid-template-rows: auto 1fr;
   position: relative;
   width: 100%;
-  height: clamp(520px, 68vh, 760px);
+  height: clamp(720px, 82vh, 1000px);
   overflow: hidden;
   overscroll-behavior: contain;
+  touch-action: none;
   background: var(--panel);
   border: 1px solid var(--line);
 }
 
-/* NETWORK / SOUP / ASCII / VORTEX / ORBIT tabs pinned to the top of the canvas */
+/* NETWORK / SOUP / ASCII / VORTEX / ORBIT tabs */
 .studio-mode-bar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 5;
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
@@ -445,6 +601,11 @@ body.paper .site-nav.is-scrolled {
   background: color-mix(in srgb, var(--bg) 82%, transparent);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--line);
+  pointer-events: none;
+}
+
+.studio-mode-bar .studio-mode-btn {
+  pointer-events: auto;
 }
 
 .studio-mode-btn {
@@ -485,16 +646,15 @@ body.paper .site-nav.is-scrolled {
   cursor: not-allowed;
 }
 
-/* #studio-canvas and #ascii-output — sit below the mode bar inside the wrap */
+/* #studio-canvas and #ascii-output — fill the row below the mode tabs */
 .studio-canvas,
 .ascii-output {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  top: 3.25rem;
+  position: relative;
   width: 100%;
-  height: auto;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  pointer-events: auto;
 }
 
 .studio-canvas canvas,
@@ -527,6 +687,7 @@ body.paper .site-nav.is-scrolled {
   display: flex;
   align-items: center;
   justify-content: center;
+  pointer-events: none;
 }
 
 .studio-canvas.is-loading::after {
@@ -627,11 +788,20 @@ body.paper .site-nav.is-scrolled {
     font-size: 22vw;
   }
 
+  .compose-settings {
+    justify-content: center;
+  }
+
   .compose-frame__header,
   .compose-frame__footer,
   .compose-controls {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .compose-frame__quote {
+    max-width: none;
+    text-align: left;
   }
 
   .field-summary {
@@ -653,19 +823,14 @@ body.paper .site-nav.is-scrolled {
     font-size: 0.65rem;
   }
 
-  .studio-canvas,
-  .ascii-output {
-    top: 4.5rem;
-  }
-
   .control-range {
     width: 100%;
   }
 
   .studio-canvas-wrap {
     width: 100%;
-    height: 58vh;
-    min-height: 420px;
+    height: clamp(480px, 72vh, 720px);
+    min-height: 480px;
   }
 
 }

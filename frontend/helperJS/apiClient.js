@@ -1,19 +1,107 @@
 // api.js
 // handles talking to my Express backend
 
-import { analyzeTextLocally } from './textProcessing.js'; // local fallback
+import { analyzeTextLocally } from './textProcessing.js';
+import { buildLocalModeArt } from './artFallback.js';
 
-const API_URL = 'http://localhost:3000'; // TODO: change to the actual API URL when hosted
-
-
-// sends text to the backend for analysis -> I call my own api
-export async function analyzeText(text, settings = {}) {
-  let density = settings.density;
-  if (density === undefined) {
-    density = 1;
+// Match Live Server host (127.0.0.1 vs localhost) so CORS Allow-Origin aligns with the page origin.
+function getBackendOrigin() {
+  if (typeof window !== 'undefined' && window.location.hostname === '127.0.0.1') {
+    return 'http://127.0.0.1:3000';
   }
-  if (density > 1) density = 1;
-  if (density < 0) density = 0;
+  return 'http://localhost:3000';
+}
+
+// Same-origin only when Express serves the app (port 3000). Live Server, file://, etc. use the backend origin above.
+function getApiBase() {
+  if (typeof window === 'undefined') {
+    return getBackendOrigin();
+  }
+
+  const { protocol, hostname, port } = window.location;
+
+  if (protocol === 'file:') {
+    return getBackendOrigin();
+  }
+
+  const onExpress =
+    (hostname === 'localhost' || hostname === '127.0.0.1') && port === '3000';
+
+  return onExpress ? '' : getBackendOrigin();
+}
+
+const API_URL = getApiBase();
+
+const ART_ROUTES = {
+  network: '/api/art/network',
+  soup: '/api/art/soup',
+  ascii: '/api/art/ascii',
+  vortex: '/api/art/vortex',
+  orbit: '/api/art/orbit'
+};
+
+function clamp01(value, fallback) {
+  const number = Number(value);
+  if (Number.isNaN(number)) {
+    return fallback;
+  }
+  return Math.min(1, Math.max(0, number));
+}
+
+function normalizeArtPayload(payload, source) {
+  const normalized = { ...payload, _source: source };
+
+  if (!normalized.links && normalized.cooccurrenceLinks) {
+    // Gallery / legacy analysis objects store co-occurrence links only.
+    normalized.cooccurrenceLinks = normalized.cooccurrenceLinks;
+  }
+
+  return normalized;
+}
+
+function artRequestBody(text, settings = {}) {
+  return {
+    text,
+    density: clamp01(settings.density, 0.6),
+    motion: clamp01(settings.motion, 0.4),
+    intensity: clamp01(settings.intensity, 0.4)
+  };
+}
+
+export async function fetchModeArt(mode, text, settings = {}) {
+  const route = ART_ROUTES[mode];
+  if (!route) {
+    throw new Error('Unknown mode: ' + mode);
+  }
+
+  const response = await fetch(`${API_URL}${route}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(artRequestBody(text, settings))
+  });
+
+  if (!response.ok) {
+    throw new Error('Echo art API failed: ' + response.status);
+  }
+
+  return normalizeArtPayload(await response.json(), 'api');
+}
+
+export async function generateModeArt(mode, text, settings = {}) {
+  try {
+    return await fetchModeArt(mode, text, settings);
+  } catch (error) {
+    console.log('could not load mode art from API, using local fallback');
+    console.log(error);
+    return buildLocalModeArt(mode, text, settings);
+  }
+}
+
+// General analysis — still used where full analysis is needed; local fallback only.
+export async function analyzeText(text, settings = {}) {
+  const density = clamp01(settings.density, 1);
 
   try {
     const response = await fetch(`${API_URL}/api/analyze-text`, {
@@ -22,8 +110,8 @@ export async function analyzeText(text, settings = {}) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        text: text,
-        density: density
+        text,
+        density
       })
     });
 
@@ -32,8 +120,7 @@ export async function analyzeText(text, settings = {}) {
     }
 
     const data = await response.json();
-    return data;
-
+    return normalizeArtPayload(data, 'api');
   } catch (error) {
     console.log('could not analyze text, using local fallback');
     console.log(error);
@@ -41,53 +128,54 @@ export async function analyzeText(text, settings = {}) {
   }
 }
 
+async function parseJsonResponse(response) {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
+}
 
-// saves a work to the gallery
 export async function saveWork(work) {
-  try {
-    const response = await fetch(`${API_URL}/api/works`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(work)
-    });
+  const response = await fetch(`${API_URL}/api/works`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(work)
+  });
 
-    return await response.json();
+  const data = await parseJsonResponse(response);
 
-  } catch (error) {
-    console.log('could not save work');
-    console.log(error);
+  if (!response.ok) {
+    throw new Error(data.error || data.message || `Failed to save work (HTTP ${response.status})`);
   }
+
+  return data;
 }
 
-
-// gets all saved works
 export async function fetchWorks() {
-  try {
-    const response = await fetch(`${API_URL}/api/works`);
-    return await response.json();
+  const response = await fetch(`${API_URL}/api/works`);
+  const data = await parseJsonResponse(response);
 
-  } catch (error) {
-    console.log('could not load gallery');
-    console.log(error);
+  if (!response.ok) {
+    throw new Error(data.error || data.message || `Failed to load gallery (HTTP ${response.status})`);
   }
+
+  return Array.isArray(data) ? data : [];
 }
 
-
-// gets one work by id
 export async function fetchWork(id) {
-  try {
-    const response = await fetch(`${API_URL}/api/works/${id}`);
-    return await response.json();
+  const response = await fetch(`${API_URL}/api/works/${id}`);
+  const data = await parseJsonResponse(response);
 
-  } catch (error) {
-    console.log('could not load work');
-    console.log(error);
+  if (!response.ok) {
+    throw new Error(data.error || data.message || `Failed to load work (HTTP ${response.status})`);
   }
+
+  return data;
 }
 
-// updates saved work settings
 export async function updateWork(id, patch) {
   try {
     const response = await fetch(`${API_URL}/api/works/${id}`, {
@@ -110,7 +198,6 @@ export async function updateWork(id, patch) {
   }
 }
 
-// deletes a work
 export async function deleteWork(id) {
   try {
     const response = await fetch(`${API_URL}/api/works/${id}`, {
@@ -118,7 +205,6 @@ export async function deleteWork(id) {
     });
 
     return await response.json();
-
   } catch (error) {
     console.log('could not delete work');
     console.log(error);
