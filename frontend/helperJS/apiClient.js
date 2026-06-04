@@ -6,12 +6,14 @@ import { buildLocalModeArt } from './artFallback.js';
 
 // Match Live Server host (127.0.0.1 vs localhost) so CORS Allow-Origin aligns with the page origin.
 function getBackendOrigin() {
-  if (typeof window !== 'undefined' && window.location.hostname === '127.0.0.1') {
-    return 'http://127.0.0.1:3000';
-  }
-  return 'http://localhost:3000';
-}
+  const host = window.location.hostname;
 
+  if (host === 'localhost' || host === '127.0.0.1') {
+    return 'http://localhost:3000';
+  }
+
+  return 'https://cs146j-finalproject.onrender.com';
+}
 // Same-origin only when Express serves the app (port 3000). Live Server, file://, etc. use the backend origin above.
 function getApiBase() {
   if (typeof window === 'undefined') {
