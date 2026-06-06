@@ -9,9 +9,8 @@ const {
   getWorkById,
   updateWork,
   deleteWork,
-  initDb,
   dbPath
-} = require('./lib/db');
+} = require('./db');
 
 const {
   generateNetworkData,
@@ -24,9 +23,7 @@ const {
 const app = express();
 const PORT = 3000;
 app.use(cors());
-
-initDb();
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '2mb' })); // limit request body size to 2MB
 
 const frontendPath = path.join(__dirname, '..', 'frontend');
 const validModes = ['network', 'soup', 'ascii', 'vortex', 'orbit'];
@@ -140,7 +137,6 @@ function getTextFromRequest(req, res) {
   return text;
 }
 
-
 // runs the text analysis pipeline
 async function analyzeEchoText(text, body) {
   return analyzeText(text, {
@@ -148,8 +144,8 @@ async function analyzeEchoText(text, body) {
   });
 }
 
-
-// analyze text route
+// from here are the API routes
+// analyze text route: analyze the text and return the analysis
 app.post('/api/analyze-text', async (req, res) => {
   const text = getTextFromRequest(req, res);
   if (!text) return;
@@ -229,7 +225,7 @@ app.post('/api/art/orbit', async (req, res) => {
   }
 });
 
-
+// from here are the API routes for the gallery
 // save one work to SQLite
 app.post('/api/works', async (req, res) => {
   try {

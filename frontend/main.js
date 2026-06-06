@@ -101,7 +101,7 @@ function setTheme(theme) {
 }
 
 
-/***-----------updates the small text line above the visualization--------------***/
+//updates the small text line above the visualization
 function updateSummary() {
   if (!state.analysis) {
     fieldSummary.innerHTML =

@@ -11,7 +11,7 @@ body.about-page {
   --body-serif: "Cormorant Garamond", "EB Garamond", Georgia, serif;
   --mono: "IBM Plex Mono", "Courier New", monospace;
 
-  --about-image: url("assets/about/aboutBackground.JPEG");
+  --about-image: url("assets/aboutBackground.JPEG");
   --small-gap: 0.75rem;
   --section-gap: clamp(1.35rem, 2.5vh, 1.85rem);
 

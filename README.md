@@ -4,7 +4,7 @@ A minimalist text art studio where users paste prose and transform it into inter
 
 ## Stack
 
-- **Backend** — Node.js, Express, SQLite (`better-sqlite3`)
+- **Backend** — Node.js, Express, SQLite
 - **Frontend** — static HTML/CSS/JS (D3 and other libs via CDN)
 - **Text enrichment** — Datamuse API (always on during server analysis)
 
@@ -13,11 +13,11 @@ A minimalist text art studio where users paste prose and transform it into inter
 ```
 ├── backend/
 │   ├── server.js              # Express API + static frontend
+│   ├── db.js                  # SQLite gallery storage
+│   ├── echo.db                # created on first run
 │   ├── lib/
 │   │   ├── analyzeText.js     # word extraction, links, Datamuse
-│   │   ├── artData.js         # visualization payloads
-│   │   └── db.js              # SQLite gallery storage
-│   └── data/                  # echo.db (created on first run)
+│   │   └── artData.js         # visualization payloads
 ├── frontend/
 │   ├── index.html             # Studio
 │   ├── gallery.html / gallery.js
@@ -26,7 +26,7 @@ A minimalist text art studio where users paste prose and transform it into inter
 └── package.json               # runs backend via npm scripts
 ```
 
-## Run
+## Run locally
 
 From the project root:
 
@@ -37,7 +37,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000)
 
-The server listens on port **3000** and stores gallery works in `backend/data/echo.db`. No config files or secrets are required.
+The server listens on port **3000** and stores gallery works in `backend/echo.db`. No config files or secrets are required.
 
 If you open the frontend from Live Server on another port, `apiClient.js` still talks to the backend on `localhost:3000` (CORS is enabled for local dev origins).
 

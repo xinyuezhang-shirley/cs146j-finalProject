@@ -145,6 +145,6 @@ vite.config.ts.timestamp-*
 .DS_Store
 
 # SQLite gallery database
-backend/data/*.db
-backend/data/*.db-wal
-backend/data/*.db-shm
+backend/echo.db
+backend/echo.db-wal
+backend/echo.db-shm

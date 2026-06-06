@@ -1,4 +1,4 @@
-// local mode art payloads when /api/art/* is unavailable.
+// local mode art payloads when /api/art/* is unavailable
 
 import { analyzeTextLocally } from './textProcessing.js';
 import { buildLocalNetworkArt } from './network.js';

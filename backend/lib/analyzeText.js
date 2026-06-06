@@ -4,6 +4,8 @@
 
 const { buildParticles } = require('./artData');
 
+// common filler words that do not add much meaning to the visualization
+// these are removed before counting important words
 const STOPWORDS = new Set([
   'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
   'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'be',
@@ -21,11 +23,14 @@ const STOPWORDS = new Set([
   'until', 'while', 'am', 'having', 'doing'
 ]);
 
+// simple word fragments used to create extra related words
+// not perfect linguistics, just enough to make the visual output richer
 const POETIC_PREFIXES = ['un', 're', 'over', 'under', 'out', 'mis'];
 const POETIC_SUFFIXES = ['ness', 'ing', 'ly', 'less', 'ful', 'ward', 'like'];
 
 
-// turns a passage into a clean list of words (keeps order, skips stopwords)
+// turns a passage into a clean list of words
+// keeps the original order, but removes stopwords and tiny words
 function getWords(text) {
   const matches = text.toLowerCase().match(/[a-z']+/g) || [];
 
@@ -36,6 +41,8 @@ function getWords(text) {
 
 
 // counts how often each word appears and remembers first-seen order
+// counts is used for frequency
+// order is used so the words still follow the original text structure
 function countWords(cleanWords) {
   const counts = {};
   const order = [];
@@ -45,6 +52,7 @@ function countWords(cleanWords) {
       counts[word] = 0;
       order.push(word);
     }
+
     counts[word] += 1;
   });
 
@@ -53,6 +61,7 @@ function countWords(cleanWords) {
 
 
 // creates the main word list used by the visuals
+// each word becomes an object instead of staying as plain text
 function makeWordList(counts, order) {
   return order.map(function (word) {
     return {
@@ -65,38 +74,54 @@ function makeWordList(counts, order) {
 }
 
 
-// connects words that appear near each other in the passage (weighted window)
+// connects words that appear near each other in the passage
+// this creates the link data used by Network mode
 function makeLinks(wordList, text, windowSize) {
   const tokens = text.toLowerCase().match(/[a-z']+/g) || [];
   const wordSet = new Set(wordList.map(function (w) { return w.text; }));
+
+  // pairCounts remembers how often two words appear close together
+  // example key: "fear|death" -> 3
   const pairCounts = {};
   const links = [];
 
   for (let i = 0; i < tokens.length; i++) {
     const anchor = tokens[i];
+
+    // only make links from words that are in our cleaned word list
     if (!wordSet.has(anchor)) {
       continue;
     }
 
+    // look at a small window of words after the current word
     const end = Math.min(i + windowSize, tokens.length);
+
     for (let j = i + 1; j < end; j++) {
       const neighbor = tokens[j];
+
+      // skip words we are not visualizing and skip self-links
       if (!wordSet.has(neighbor) || anchor === neighbor) {
         continue;
       }
 
+      // sort the pair so "fear|death" and "death|fear" count as the same link
       const key = [anchor, neighbor].sort().join('|');
+
       if (!pairCounts[key]) {
         pairCounts[key] = 0;
       }
+
       pairCounts[key] += 1;
     }
   }
 
+  // turn the pairCounts object into an array of link objects
   const keys = Object.keys(pairCounts);
+
   for (let k = 0; k < keys.length; k++) {
     const key = keys[k];
     const parts = key.split('|');
+
     links.push({
       source: parts[0],
       target: parts[1],
@@ -109,16 +134,22 @@ function makeLinks(wordList, text, windowSize) {
 
 
 // guesses related words from links, neighbors, and small word-shape tweaks
+// this is the local fallback version, meaning it does not need the internet
 function makeLocalRelatedWords(wordList, text, links) {
   const seen = new Set(wordList.map(function (w) { return w.text; }));
   const related = [];
 
+  // helper so all related words get cleaned and stored the same way
   function addRelated(wordText, score, sourceWord) {
     const normalized = wordText.toLowerCase();
+
+    // do not add duplicate words, stopwords, or very tiny words
     if (seen.has(normalized) || normalized.length < 2 || STOPWORDS.has(normalized)) {
       return;
     }
+
     seen.add(normalized);
+
     related.push({
       text: normalized,
       score: score,
@@ -127,35 +158,47 @@ function makeLocalRelatedWords(wordList, text, links) {
     });
   }
 
+  // top words are treated as the main ideas of the passage
   const topWords = wordList.slice(0, 8);
   const topSet = new Set(topWords.map(function (w) { return w.text; }));
   const wordSet = new Set(wordList.map(function (w) { return w.text; }));
 
+  // stronger links should matter more, so sort by weight first
   const sortedLinks = links.slice().sort(function (a, b) {
     return b.weight - a.weight;
   });
 
+  // if a top word is strongly linked to another word,
+  // treat that other word as related
   sortedLinks.forEach(function (link) {
     if (topSet.has(link.source)) {
       addRelated(link.target, 0.2 + link.weight * 0.08, link.source);
     }
+
     if (topSet.has(link.target)) {
       addRelated(link.source, 0.2 + link.weight * 0.08, link.target);
     }
   });
 
+  // also look for neighboring words in the raw text
+  // if a core word sits beside a non-core word, that neighbor may still be meaningful
   const tokens = text.toLowerCase().match(/[a-z']+/g) || [];
+
   for (let i = 0; i < tokens.length - 1; i++) {
     const left = tokens[i];
     const right = tokens[i + 1];
+
     if (wordSet.has(left) && !wordSet.has(right)) {
       addRelated(right, 0.35, left);
     }
+
     if (wordSet.has(right) && !wordSet.has(left)) {
       addRelated(left, 0.35, right);
     }
   }
 
+  // repeated words are often important themes
+  // so we generate a few extra fragments from them
   const repeatedWords = wordList.filter(function (w) {
     return w.frequency >= 2;
   }).slice(0, 6);
@@ -167,16 +210,26 @@ function makeLocalRelatedWords(wordList, text, links) {
     }
   });
 
+  // create simple poetic variations of the top words
+  // examples:
+  // fear -> fearful
+  // death -> deathless
+  // memory -> unmemory
   const seedWords = topWords.slice(0, 5);
+
   seedWords.forEach(function (w) {
     const word = w.text;
     let p = 0;
+
     for (p = 0; p < POETIC_PREFIXES.length; p++) {
       addRelated(POETIC_PREFIXES[p] + word, 0.22, word);
     }
+
     for (p = 0; p < POETIC_SUFFIXES.length; p++) {
       addRelated(word + POETIC_SUFFIXES[p], 0.2, word);
     }
+
+    // basic singular/plural variation
     if (word.endsWith('s') && word.length > 3) {
       addRelated(word.slice(0, -1), 0.16, word);
     } else if (!word.endsWith('s')) {
@@ -184,6 +237,7 @@ function makeLocalRelatedWords(wordList, text, links) {
     }
   });
 
+  // highest scoring related words come first
   related.sort(function (a, b) {
     return b.score - a.score;
   });
@@ -192,22 +246,27 @@ function makeLocalRelatedWords(wordList, text, links) {
 }
 
 
-// combines local related words and Datamuse words, keeping the stronger score
+// combines local related words and Datamuse words
+// if both sources suggest the same word, keep the stronger score
 function mergeRelatedWords(localWords, datamuseWords) {
   const byText = new Map();
 
+  // start with locally generated related words
   localWords.forEach(function (w) {
     byText.set(w.text, w);
   });
 
+  // then add/replace with Datamuse words if they are stronger
   datamuseWords.forEach(function (w) {
     const existing = byText.get(w.text);
+
     if (!existing || w.score > existing.score) {
       byText.set(w.text, w);
     }
   });
 
   const merged = Array.from(byText.values());
+
   merged.sort(function (a, b) {
     return b.score - a.score;
   });
@@ -216,13 +275,17 @@ function mergeRelatedWords(localWords, datamuseWords) {
 }
 
 
-// one Datamuse request; returns an empty list if the network fails
+// one Datamuse request
+// returns an empty list if the network fails
+// this keeps Echo working even when the API is unavailable
 async function fetchDatamuseJson(url) {
   try {
     const response = await fetch(url);
+
     if (!response.ok) {
       throw new Error('Datamuse error: ' + response.status);
     }
+
     return await response.json();
   } catch (err) {
     return [];
@@ -232,8 +295,11 @@ async function fetchDatamuseJson(url) {
 
 // asks Datamuse for words that feel related to the main words in the passage
 async function getDatamuseWords(wordList) {
+  // only use a few seed words so the API calls do not get too large
   const seeds = wordList.slice(0, 6);
   const related = new Map();
+
+  // seen prevents returning words already present in the original input
   const seen = new Set(wordList.map(function (w) {
     return (w.text || w).toLowerCase();
   }));
@@ -241,8 +307,14 @@ async function getDatamuseWords(wordList) {
   for (let s = 0; s < seeds.length; s++) {
     const item = seeds[s];
     const seed = (typeof item === 'string' ? item : item.text).toLowerCase();
+
+    // encode the word so it is safe inside a URL
     const encoded = encodeURIComponent(seed);
 
+    // Datamuse relationship types:
+    // ml      = words with similar meaning
+    // rel_trg = words often associated with the seed
+    // rel_syn = synonyms
     const urls = [
       'https://api.datamuse.com/words?ml=' + encoded + '&max=8',
       'https://api.datamuse.com/words?rel_trg=' + encoded + '&max=8',
@@ -256,6 +328,8 @@ async function getDatamuseWords(wordList) {
         const entry = data[d];
         const wordText = entry.word.toLowerCase();
 
+        // skip results that are noisy or hard to visualize
+        // for example: phrases, hyphenated words, stopwords, and duplicates
         if (
           wordText.includes(' ')
           || wordText.includes('-')
@@ -267,9 +341,13 @@ async function getDatamuseWords(wordList) {
         }
 
         seen.add(wordText);
+
         related.set(wordText, {
           text: wordText,
+
+          // Datamuse scores are large, so scale them down
           score: (entry.score || 0) / 100000,
+
           source: seed,
           type: 'related'
         });
@@ -278,6 +356,7 @@ async function getDatamuseWords(wordList) {
   }
 
   const list = Array.from(related.values());
+
   list.sort(function (a, b) {
     return b.score - a.score;
   });
@@ -286,7 +365,9 @@ async function getDatamuseWords(wordList) {
 }
 
 
-// builds the final related-word list (local guesses plus Datamuse)
+// builds the final related-word list
+// local guesses make sure the app still works offline
+// Datamuse makes the output richer when the API works
 async function buildRelatedWords(wordList, text, links) {
   const local = makeLocalRelatedWords(wordList, text, links);
 
@@ -299,11 +380,15 @@ async function buildRelatedWords(wordList, text, links) {
 }
 
 
-// pulls words, links, related words, and particles out of a passage
+// pulls words and word frequency out of a passage
+// this is the first stage of the analysis pipeline
 function extractWords(text) {
   const cleanWords = getWords(text);
   const counted = countWords(cleanWords);
   const words = makeWordList(counted.counts, counted.order);
+
+  // raw word count includes stopwords
+  // useful for metadata, but not for visualization nodes
   const raw = text.toLowerCase().match(/[a-z']+/g) || [];
 
   return {
@@ -315,21 +400,35 @@ function extractWords(text) {
 
 
 // main analysis used by the API routes
+// this is the function server.js calls when the user enters text
 async function analyzeText(text, options) {
   options = options || {};
+
+  // density controls how crowded the generated particles feel
   let density = options.density;
+
   if (density === undefined || density === null) {
     density = 1;
   }
+
+  // keep density between 0 and 1
   density = Math.min(1, Math.max(0, density));
 
+  // basic text processing
   const extracted = extractWords(text);
   const words = extracted.words;
   const frequency = extracted.frequency;
+
+  // graph-style relationships between words
   const links = makeLinks(words, text, 4);
+
+  // extra related words from local logic + Datamuse
   const relatedWords = await buildRelatedWords(words, text, links);
+
+  // particle data used by several visualization modes
   const particles = buildParticles(words, relatedWords, density);
 
+  // simplified node list for the network graph
   const nodes = words.map(function (w) {
     return {
       id: w.text,
@@ -356,6 +455,7 @@ async function analyzeText(text, options) {
 
 
 // older names kept so other backend files can still require them
+// this avoids breaking code that used the previous helper names
 const buildCooccurrenceLinks = makeLinks;
 const generateLocalRelatedWords = makeLocalRelatedWords;
 
